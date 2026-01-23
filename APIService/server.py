@@ -8,6 +8,5 @@ import uvicorn
 # Create a FastAPI app
 app = FastAPI()
 
-
 if __name__ == "__main__":
     uvicorn.run(app)

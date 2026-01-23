@@ -1,10 +1,30 @@
 import sqlite3
-
+"""
+Data Dictionary for unclear attributes:
+    USER:
+        updated_at - timestamp for updated user details
+    TRAFFIC_STATUS:
+        length - length of road segment for which the traffic applies
+        free_flow - speed of traffic with no congestion
+        jam_factor - extent of traffic jam (0-10)
+        jam_tendency - represents the trend of traffic jam (decreasing(-1), no change(0), increasing(1))
+        traversibility - provides info on whether the segment in blocked, restricted, or open
+    ROUTE:
+        route_path - jsonb datatype storing the road segments traversed in the route
+"""
 def get_connection():
+    """
+    Create connection to in-memory database
+    """
     conn  = sqlite3.connect("gsu_commute.db")
     return conn
 
 def create_tables(conn):
+    """
+    Create table structures for database schema with proper contraints
+    
+    :param conn: Description
+    """
     cur = conn.cursor()
 
     cur.execute("DROP TABLE IF EXISTS user")
@@ -18,9 +38,10 @@ def create_tables(conn):
 
     cur.execute("DROP TABLE IF EXISTS auth_token")
     cur.execute("CREATE TABLE auth_token \
-                 (token_hash VARCHAR(255) PRIMARY KEY, \
+                 (token_hash VARCHAR(255), \
                  user_id INT NOT NULL, \
                  created_at DATETIME NOT NULL, \
+                 PRIMARY KEY(token_hash, user_id), \
                  FOREIGN KEY(user_id) REFERENCES user(user_id)) \
                 ")
 
@@ -29,7 +50,7 @@ def create_tables(conn):
     cur.execute("CREATE TABLE parking_status \
                  (parking_status_id INT PRIMARY KEY, \
                  lot_name VARCHAR(50) NOT NULL, \
-                 lot__street_address VARCHAR(255) NOT NULL, \
+                 lot_street_address VARCHAR(255) NOT NULL, \
                  available_spaces INT NOT NULL, \
                  percent_open DECIMAL NOT NULL, \
                  status VARCHAR(10) CHECK(status IN ('Red', 'Yellow', 'Green')) NOT NULL, \
@@ -95,12 +116,16 @@ def create_tables(conn):
                  weather_status VARCHAR(75) NOT NULL, \
                  created_at DATETIME NOT NULL, \
                  FOREIGN KEY(user_id) REFERENCES user(user_id), \
-                 FOREIGN KEY(parking_status_id) REFERENCES parking_status(parkijng_status_id), \
+                 FOREIGN KEY(parking_status_id) REFERENCES parking_status(parking_status_id), \
                  FOREIGN KEY(traffic_status_id) REFERENCES traffic_status(traffic_status_id), \
                  FOREIGN KEY(marta_status_id) REFERENCES marta_status(marta_status_id)) \
                 ")
     
 def create_db():
+    """
+    Call functions to create database schema
+    Will also call functions to populate tables with test data for development
+    """
     conn = get_connection()
     try:
         create_tables(conn)
