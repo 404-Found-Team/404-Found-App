@@ -1,6 +1,7 @@
 import sqlite3
 import random
 from datetime import datetime
+from math import floor
 
 """
 Data Dictionary for unclear attributes:
@@ -147,6 +148,7 @@ def populate_user_table(conn):
         "Daniels", "Lawson", "Whitaker", "Kennedy", "Bradley"
     ]
 
+    # Example hashes in bcrypt style
     password_hashes = [
         "$2b$12$KIXQeK1Lk0z3Yq5C6tU0cO2Q9g3H8ZP7xZp0sF1aX9Qp3LrN9D4u",
         "$2b$12$uHj4z2ZJkQmX7C9F8E6pYeR0H7x2TtQyS0Fq8CwP3Bz1rN9K",
@@ -192,10 +194,45 @@ def populate_token_table(conn):
 
     cur = conn.cursor()
     for i in range(200):
-        token_hash = ''.join(random.choices('0123456789abcdef', k=64))
-        user_id = random.randint(1,50)
+        token_hash = ''.join(random.choices('0123456789abcdef', k=64)) # Create random 64-char hash strings
+        user_id = random.randint(1,50) # Random user ids
         cur.execute("INSERT INTO auth_token (token_hash, user_id, created_at) \
                     VALUES (?, ?, ?)", (token_hash, user_id, datetime.now()))
+    
+    conn.commit()
+
+def populate_parking_table(conn):
+    """
+    Create test data for the parking_status table
+    
+    :param conn: Connection with SQLite DB
+    """
+    lots = [
+        "CC Deck", "K Deck", "M Deck", 
+        "N Deck", "S Deck", "T Deck"
+    ]
+
+    addresses = [
+        "7 Fulton St SW", "153 Jesse Hill Jr Dr SE",
+        "33 Auditorium Pl SE", "118 Gilmer St SE",
+        "118 Gilmer St SE", "43 Auburn Ave NE"
+    ]
+    
+    deck_spaces = [0, 0, 0, 0, 0, 0] # Available spaces in each deck
+    increments = [224, 135, 247.5, 135, 93, 314] # Increment value for each pass of the for loop (25% of total spaces)
+    statuses = ['Red', 'Yellow', 'Green', 'Green', 'Green'] # Status color represented by each percentage
+
+    cur = conn.cursor()  
+    percentage = 0 
+    for i in range(5):
+        for j in range(6):
+            cur.execute("INSERT INTO parking_status (lot_name, lot_street_address, available_spaces, percent_open, status, timestamp) \
+                        VALUES (?, ?, ?, ?, ?, ?)", 
+                        (lots[j], addresses[j], floor(deck_spaces[j]), percentage, statuses[i], datetime.now()))
+        # Increase available spaces by 25% of total spaces
+        for idx in range(len(deck_spaces)):
+            deck_spaces[idx] += increments[idx]
+        percentage += 25
     
     conn.commit()
 
@@ -209,6 +246,7 @@ def create_db():
         create_tables(conn)
         populate_user_table(conn)
         populate_token_table(conn)
+        populate_parking_table(conn)
     finally:
         conn.close()
 
