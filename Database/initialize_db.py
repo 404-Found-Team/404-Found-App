@@ -26,13 +26,13 @@ def create_tables(conn):
     """
     Create table structures for database schema with proper contraints
     
-    :param conn: Description
+    :param conn: Connection to SQLite DB
     """
     cur = conn.cursor()
 
     cur.execute("DROP TABLE IF EXISTS user")
     cur.execute("CREATE TABLE user \
-                 (user_id INT PRIMARY KEY, \
+                 (user_id INTEGER PRIMARY KEY AUTOINCREMENT, \
                  fname VARCHAR(75) NOT NULL, \
                  lname VARCHAR(75) NOT NULL, \
                  email VARCHAR(255) NOT NULL, \
@@ -53,7 +53,7 @@ def create_tables(conn):
 
     cur.execute("DROP TABLE IF EXISTS parking_status")
     cur.execute("CREATE TABLE parking_status \
-                 (parking_status_id INT PRIMARY KEY, \
+                 (parking_status_id INTEGER PRIMARY KEY AUTOINCREMENT, \
                  lot_name VARCHAR(50) NOT NULL, \
                  lot_street_address VARCHAR(255) NOT NULL, \
                  available_spaces INT NOT NULL, \
@@ -64,7 +64,7 @@ def create_tables(conn):
 
     cur.execute("DROP TABLE IF EXISTS traffic_status")
     cur.execute("CREATE TABLE traffic_status \
-                 (traffic_status_id INT PRIMARY KEY, \
+                 (traffic_status_id INTEGER PRIMARY KEY AUTOINCREMENT, \
                  start_latitude DECIMAL NOT NULL, \
                  start_longitude DECIMAL NOT NULL, \
                  end_latitude DECIMAL NOT NULL, \
@@ -79,7 +79,7 @@ def create_tables(conn):
 
     cur.execute("DROP TABLE IF EXISTS safety_feed")
     cur.execute("CREATE TABLE safety_feed \
-                 (alert_id INT PRIMARY KEY, \
+                 (alert_id INTEGER PRIMARY KEY AUTOINCREMENT, \
                  user_id INT, \
                  type VARCHAR(75) NOT NULL, \
                  description TEXT NOT NULL, \
@@ -93,7 +93,7 @@ def create_tables(conn):
 
     cur.execute("DROP TABLE IF EXISTS marta_status")
     cur.execute("CREATE TABLE marta_status \
-                 (status_id INT PRIMARY KEY, \
+                 (status_id INTEGER PRIMARY KEY AUTOINCREMENT, \
                  line VARCHAR(15) NOT NULL, \
                  latitude DECIMAL NOT NULL, \
                  longitude DECIMAL NOT NULL, \
@@ -106,7 +106,7 @@ def create_tables(conn):
 
     cur.execute("DROP TABLE IF EXISTS route")
     cur.execute("CREATE TABLE route \
-                 (route_id INT PRIMARY KEY, \
+                 (route_id INTEGER PRIMARY KEY AUTOINCREMENT, \
                  user_id INT NOT NULL, \
                  start_location VARCHAR(255) NOT NULL, \
                  end_location VARCHAR(255) NOT NULL, \
@@ -128,6 +128,11 @@ def create_tables(conn):
     conn.commit()
 
 def populate_user_table(conn):
+    """
+    Populate user table with 50 random users
+    
+    :param conn: Connection to SQLite DB
+    """
     first_names = [
     "Alex", "Jordan", "Taylor", "Morgan", "Casey",
     "Riley", "Avery", "Cameron", "Drew", "Parker",
@@ -177,7 +182,23 @@ def populate_user_table(conn):
                     (fname, lname, email, pword_hash, datetime.now()))
     
     conn.commit()
+
+def populate_token_table(conn):
+    """
+    Create test data for the auth_token table
     
+    :param conn: Connection with SQLite DB
+    """
+
+    cur = conn.cursor()
+    for i in range(200):
+        token_hash = ''.join(random.choices('0123456789abcdef', k=64))
+        user_id = random.randint(1,50)
+        cur.execute("INSERT INTO auth_token (token_hash, user_id, created_at) \
+                    VALUES (?, ?, ?)", (token_hash, user_id, datetime.now()))
+    
+    conn.commit()
+
 def create_db():
     """
     Call functions to create database schema
@@ -187,6 +208,7 @@ def create_db():
     try:
         create_tables(conn)
         populate_user_table(conn)
+        populate_token_table(conn)
     finally:
         conn.close()
 
