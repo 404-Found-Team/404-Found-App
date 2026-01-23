@@ -1,4 +1,7 @@
 import sqlite3
+import random
+from datetime import datetime
+
 """
 Data Dictionary for unclear attributes:
     USER:
@@ -30,6 +33,8 @@ def create_tables(conn):
     cur.execute("DROP TABLE IF EXISTS user")
     cur.execute("CREATE TABLE user \
                  (user_id INT PRIMARY KEY, \
+                 fname VARCHAR(75) NOT NULL, \
+                 lname VARCHAR(75) NOT NULL, \
                  email VARCHAR(255) NOT NULL, \
                  password_hash VARCHAR(255) NOT NULL, \
                  created_at DATETIME NOT NULL, \
@@ -120,6 +125,58 @@ def create_tables(conn):
                  FOREIGN KEY(traffic_status_id) REFERENCES traffic_status(traffic_status_id), \
                  FOREIGN KEY(marta_status_id) REFERENCES marta_status(marta_status_id)) \
                 ")
+    conn.commit()
+
+def populate_user_table(conn):
+    first_names = [
+    "Alex", "Jordan", "Taylor", "Morgan", "Casey",
+    "Riley", "Avery", "Cameron", "Drew", "Parker",
+    "Quinn", "Reese", "Logan", "Hayden", "Blake",
+    "Sydney", "Emerson", "Rowan", "Sawyer", "Finley"
+    ]
+
+    last_names = [
+        "Anderson", "Mitchell", "Carter", "Thompson", "Reynolds",
+        "Parker", "Sullivan", "Bennett", "Hughes", "Coleman",
+        "Foster", "Graham", "Morrison", "Wallace", "Pierce",
+        "Daniels", "Lawson", "Whitaker", "Kennedy", "Bradley"
+    ]
+
+    password_hashes = [
+        "$2b$12$KIXQeK1Lk0z3Yq5C6tU0cO2Q9g3H8ZP7xZp0sF1aX9Qp3LrN9D4u",
+        "$2b$12$uHj4z2ZJkQmX7C9F8E6pYeR0H7x2TtQyS0Fq8CwP3Bz1rN9K",
+        "$2b$12$Q9wX6C3FZ1LkS2H8P5YyT4Rr0JmE7BzNq0pUuD9KcA",
+        "$2b$12$7sX4qH0T9mY8K6wP2B5JrFZQnCz1E3SULRkD",
+        "$2b$12$Z0QmF8T7yJ9P1s5K2E3z4UqLk6CwHNRB",
+        "$2b$12$K3Y7B1U2HnZQ9D4xE6C8P0wLrF5JmT",
+        "$2b$12$8w3T2CkYF7nH0xQ5S4RZJ6D9m1PBLU",
+        "$2b$12$6F3nP9Q8ZC2x7B0D4KJH1L5mEwTRYS",
+        "$2b$12$Z8D4K7C3nE9Qm1P5F2JH0L6xTBSRwy",
+        "$2b$12$3LZC2B0KxQn4T9R6P5JY7mF1H8EDSw",
+        "$2b$12$7n8H5Y9m4D2ZKJ0QF3LPC1R6BTSxEw",
+        "$2b$12$RZC5P4K0x2n1mFJ7QY9D8H3E6BTSwL",
+        "$2b$12$KZ6C5Yx2T0D9R8nH4QFJ1m7S3BPwEL",
+        "$2b$12$4xHnQ8Z2P6Y5R1T7C9K0EJDBFLSmw",
+        "$2b$12$P3R4H5C9n8x2mFZ1QK6J0TS7YEDBLw",
+        "$2b$12$Q9ZK5n1x8F6Y0C2R3mB4DHT7EJPSwL",
+        "$2b$12$Y3Z9F7m5n8H1x0K2Q4D6JCPRBTESwL",
+        "$2b$12$K9Y2Q7FZ0x8R6nH1T5P4m3CDEJBSw",
+        "$2b$12$5R3Q9xK0F8n7Y1mZJ6T2H4CDEBSwL",
+        "$2b$12$8KxF9Y5n3Q0Z4H7R1m2T6CDEJBSwL"
+    ]
+
+    cur = conn.cursor()
+    for i in range(50):
+        fname = random.choice(first_names)
+        lname = random.choice(last_names)
+        email = f'{fname.lower()}.{lname.lower()}@gmail.com'
+        pword_hash = random.choice(password_hashes)
+
+        cur.execute(f"INSERT INTO user (fname, lname, email, password_hash, created_at) \
+                    VALUES (?, ?, ?, ?, ?)",
+                    (fname, lname, email, pword_hash, datetime.now()))
+    
+    conn.commit()
     
 def create_db():
     """
@@ -129,6 +186,7 @@ def create_db():
     conn = get_connection()
     try:
         create_tables(conn)
+        populate_user_table(conn)
     finally:
         conn.close()
 
