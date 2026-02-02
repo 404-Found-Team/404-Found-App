@@ -84,8 +84,8 @@ def create_tables(conn):
                  user_id INT, \
                  type VARCHAR(75) NOT NULL, \
                  description TEXT NOT NULL, \
-                 latitude DECIMAL, \
-                 longitude DECIMAL, \
+                 latitude REAL CHECK(latitude >= -90 AND latitude <= 90), \
+                 longitude REAL CHECK(longitude >= -180 AND longitude <= 180), \
                  upvotes INT NOT NULL, \
                  downvotes INT NOT NULL, \
                  created_at DATETIME NOT NULL, \
@@ -235,6 +235,14 @@ def populate_parking_table(conn):
         percentage += 25
     
     conn.commit()
+
+def populate_safety_table(conn):
+    """
+    Create test data for the safety_feed table
+    type!!, description, lat, lon, upvotes, downvotes, created_at
+    :param conn: Connection with SQLite DB
+    """
+
 
 def create_db():
     """
