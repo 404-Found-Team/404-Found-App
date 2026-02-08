@@ -12,9 +12,11 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router'; // New
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 
-const SignInScreen = ({ navigation }) => {
+export default function SignInScreen() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -25,7 +27,8 @@ const SignInScreen = ({ navigation }) => {
     }
     
     // Navigate to main app
-    navigation.replace('MainApp');
+    router.replace('./HomeScreen');
+    
   };
 
   return (
@@ -68,7 +71,7 @@ const SignInScreen = ({ navigation }) => {
 
           <TouchableOpacity 
             style={styles.forgotPassword}
-            onPress={() => navigation.navigate('ForgotPassword')}
+            onPress={() => router.push('./ForgotPasswordScreen')}
           >
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
@@ -82,7 +85,7 @@ const SignInScreen = ({ navigation }) => {
 
           <TouchableOpacity 
             style={styles.signUpContainer}
-            onPress={() => navigation.navigate('SignUp')}
+            onPress={() => router.push('./SignUpScreen')}
           >
             <Text style={styles.signUpText}>
               Don't have an account? <Text style={styles.signUpLink}>Sign Up</Text>
@@ -173,5 +176,3 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
 });
-
-export default SignInScreen;

@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 
-const ParkingScreen = ({ navigation }) => {
+export default function ParkingScreen() {
+  const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState('All');
   const filters = ['All', 'Garages', 'Lots', 'Street'];
   
@@ -31,10 +33,10 @@ const ParkingScreen = ({ navigation }) => {
           <TouchableOpacity style={styles.iconButton}>
             <MaterialCommunityIcons name="menu" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Settings')}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => router.push('Settings')}>
             <MaterialCommunityIcons name="cog" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('MyAccount')}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => router.push('MyAccount')}>
             <MaterialCommunityIcons name="account" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
@@ -129,5 +131,3 @@ const styles = StyleSheet.create({
   directionsButton: { backgroundColor: Colors.primary, borderRadius: BorderRadius.md, paddingVertical: Spacing.sm, alignItems: 'center' },
   directionsButtonText: { color: Colors.white, fontSize: 16, fontWeight: '600' },
 });
-
-export default ParkingScreen;

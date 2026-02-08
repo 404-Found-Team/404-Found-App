@@ -9,9 +9,11 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 
-const TransitScreen = ({ navigation }) => {
+export default function TransitScreen() {
+  const router = useRouter();
   const nearbyStops = [
     {
       id: '1',
@@ -58,13 +60,13 @@ const TransitScreen = ({ navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => navigation.navigate('Settings')}
+            onPress={() => router.push('SettingsScreen')}
           >
             <MaterialCommunityIcons name="cog" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => navigation.navigate('MyAccount')}
+            onPress={() => router.push('MyAccountScreen')}
           >
             <MaterialCommunityIcons name="account" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
@@ -272,5 +274,3 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.xs,
   },
 });
-
-export default TransitScreen;

@@ -10,9 +10,11 @@ import {
   Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 
-const SettingsScreen = ({ navigation }) => {
+export default function SettingsScreen() {
+  const router = useRouter();
   const [darkMode, setDarkMode] = useState(false);
 
   const handleSignOut = () => {
@@ -24,10 +26,11 @@ const SettingsScreen = ({ navigation }) => {
         { 
           text: 'Sign Out', 
           style: 'destructive',
-          onPress: () => navigation.reset({
+          onPress: () => router.replace('/')
+          /*({
             index: 0,
             routes: [{ name: 'SignIn' }],
-          })
+          })*/
         },
       ]
     );
@@ -58,13 +61,13 @@ const SettingsScreen = ({ navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => navigation.navigate('Settings')}
+            onPress={() => {}}
           >
             <Icon name="cog" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => navigation.navigate('MyAccount')}
+            onPress={() => router.push('./MyAccountScreen')}
           >
             <Icon name="account" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
@@ -287,5 +290,3 @@ const styles = StyleSheet.create({
     color: Colors.danger,
   },
 });
-
-export default SettingsScreen;

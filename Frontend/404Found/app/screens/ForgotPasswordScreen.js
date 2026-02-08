@@ -12,9 +12,11 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 
-const ForgotPasswordScreen = ({ navigation }) => {
+export default function ForgotPasswordScreen() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
 
   const handleResetPassword = () => {
@@ -26,7 +28,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
     Alert.alert(
       'Reset Link Sent',
       'If an account exists with this email, you will receive a password reset link.',
-      [{ text: 'OK', onPress: () => navigation.goBack() }]
+      [{ text: 'OK', onPress: () => router.back() }]
     );
   };
 
@@ -69,7 +71,7 @@ const ForgotPasswordScreen = ({ navigation }) => {
 
           <TouchableOpacity 
             style={styles.backContainer}
-            onPress={() => navigation.goBack()}
+            onPress={() => router.back()}
           >
             <MaterialCommunityIcons name="arrow-left" size={20} color={Colors.white} />
             <Text style={styles.backText}>Back to Sign In</Text>
@@ -152,5 +154,3 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.sm,
   },
 });
-
-export default ForgotPasswordScreen;

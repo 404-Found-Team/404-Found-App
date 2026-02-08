@@ -13,13 +13,15 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 
-const SignUpScreen = ({ navigation }) => {
+export default function SignUpScreen() {
+    const router = useRouter();
     const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [confirmPassword, setConformPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
 
     const handleSignUp = () => {
         if (!fullName || !email || !password || !confirmPassword) {
@@ -33,7 +35,8 @@ const SignUpScreen = ({ navigation }) => {
       }
       
       Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: () => navigation.navigate('SignIn') }
+        { text: 'OK', onPress: () => router.back('/') } // used to say SignIn 
+        // And the .back may cancel any changes that were made when updating sign up.
       ]);
     };
 
@@ -106,7 +109,7 @@ const SignUpScreen = ({ navigation }) => {
 
                         <TouchableOpacity
                             style={styles.signInContainer}
-                            onPress={() => navigation.navigate('SignIn')}
+                            onPress={() => router.back('/')} // used to say SignIn
                         >
                             <Text style={styles.signInText}>
                                 Already have an account? <Text style={styles.signInLink}>Sign In</Text>
@@ -195,5 +198,3 @@ const styles = StyleSheet.create({
         textDecorationLine: 'underline',
     },
 });
-
-export default SignUpScreen;

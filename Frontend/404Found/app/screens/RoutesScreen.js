@@ -10,9 +10,11 @@ import {
   TextInput,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons'; // NO import Icon
+import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 
-const RoutesScreen = ({ navigation }) => {
+export default function RoutesScreen() {
+  const router = useRouter();
   const [origin, setOrigin] = useState('Current Location');
   const [destination, setDestination] = useState('Langdale Hall');
   const [arriveBy, setArriveBy] = useState('9:00 AM');
@@ -71,13 +73,13 @@ const RoutesScreen = ({ navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => navigation.navigate('Settings')}
+            onPress={() => router.push('Settings')}
           >
             <MaterialCommunityIcons name="cog" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => navigation.navigate('MyAccount')}
+            onPress={() => router.push('MyAccount')}
           >
             <MaterialCommunityIcons name="account" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
@@ -312,5 +314,3 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
 });
-
-export default RoutesScreen;

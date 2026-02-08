@@ -8,9 +8,11 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 
-const MyAccountScreen = ({ navigation }) => {
+export default function MyAccountScreen() {
+  const router = useRouter();
   const savedPlaces = [
     { id: '1', name: 'Home', address: '123 Main Street', icon: 'home' },
     { id: '2', name: 'Work', address: 'Langdale Hall', icon: 'briefcase' },
@@ -61,13 +63,13 @@ const MyAccountScreen = ({ navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => navigation.navigate('Settings')}
+            onPress={() => router.push('./SettingsScreen')}
           >
             <Icon name="cog" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => navigation.navigate('MyAccount')}
+            onPress={() => {}}
           >
             <Icon name="account" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
@@ -356,5 +358,3 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
 });
-
-export default MyAccountScreen;

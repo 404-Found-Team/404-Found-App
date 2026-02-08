@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 
-const HomeScreen = ({ navigation }) => {
+export default function HomeScreen() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
 
   const recentPlaces = [
@@ -42,13 +44,13 @@ const HomeScreen = ({ navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => navigation.navigate('Settings')}
+            onPress={() => router.push('./SettingsScreen')}
           >
             <MaterialCommunityIcons name="cog" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => navigation.navigate('MyAccount')}
+            onPress={() => router.push('./MyAccountScreen')}
           >
             <MaterialCommunityIcons name="account" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
@@ -210,4 +212,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default HomeScreen;
+// export default HomeScreen;

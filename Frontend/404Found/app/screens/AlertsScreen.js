@@ -8,9 +8,11 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 
-const AlertsScreen = ({ navigation }) => {
+export default function AlertsScreen() {
+  const router = useRouter();
   const [alertPreferences, setAlertPreferences] = useState({
     trafficAlerts: true,
     constructionUpdates: true,
@@ -91,13 +93,13 @@ const AlertsScreen = ({ navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => navigation.navigate('Settings')}
+            onPress={() => router.push('Settings')}
           >
             <Icon name="cog" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => navigation.navigate('MyAccount')}
+            onPress={() => router.push('MyAccount')}
           >
             <Icon name="account" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
@@ -360,5 +362,3 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
 });
-
-export default AlertsScreen;
