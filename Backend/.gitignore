@@ -1,0 +1,8 @@
+# Environment files
+.env
+
+# Virtual environment
+venv/
+
+# Ignore environment files inside APIService as well
+/APIService/.env
