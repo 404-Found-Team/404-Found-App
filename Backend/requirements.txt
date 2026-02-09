@@ -8,3 +8,6 @@ python-dotenv
 passlib
 python-jose[cryptography]
 bcrypt<4.0
+authlib
+starlette
+httpx
