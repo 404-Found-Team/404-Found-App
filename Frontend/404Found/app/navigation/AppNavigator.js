@@ -14,7 +14,7 @@ const Stack = createStackNavigator();
 
 const AppNavigator = () => {
   return (
-    <NavigationContainer>
+    //<NavigationContainer>
       <Stack.Navigator 
         initialRouteName="SignIn"
         screenOptions={{
@@ -37,7 +37,7 @@ const AppNavigator = () => {
           options={{ presentation: 'modal' }}
         />
       </Stack.Navigator>
-    </NavigationContainer>
+    //</NavigationContainer>
   );
 };
 

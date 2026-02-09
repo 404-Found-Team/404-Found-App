@@ -1,4 +1,4 @@
-import { StatusBar } from 'expo-status-bar';  //
+import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
   View,
@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   TextInput,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons'; // NO import Icon
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 
@@ -60,11 +60,11 @@ export default function RoutesScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />    /* This isn't here in the old version */
-      {/* Header */}
+      <StatusBar style="dark" />
+      
       <View style={styles.header}>
         <View style={styles.logoButton}>
-    /* Replace Icon with MaterialCommunityIcons */      <MaterialCommunityIcons name="map-marker" size={28} color={Colors.primaryDark} />
+        <MaterialCommunityIcons name="map-marker" size={28} color={Colors.primaryDark} />
         </View>
         
         <View style={styles.headerIcons}>
@@ -73,13 +73,13 @@ export default function RoutesScreen() {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => router.push('Settings')}
+            onPress={() => router.push('SettingsScreen')}
           >
             <MaterialCommunityIcons name="cog" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => router.push('MyAccount')}
+            onPress={() => router.push('MyAccountScreen')}
           >
             <MaterialCommunityIcons name="account" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>

@@ -7,14 +7,17 @@ import {
   StyleSheet,
   SafeAreaView,
   FlatList,
+  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
 
   const recentPlaces = [
@@ -31,8 +34,10 @@ export default function HomeScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
+      
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.logoButton}>
           <MaterialCommunityIcons name="map-marker" size={28} color={Colors.primaryDark} />
@@ -57,6 +62,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {/* Map Area */}
       <View style={styles.mapContainer}>
         <View style={styles.mapPlaceholder}>
           <MaterialCommunityIcons name="map-marker" size={60} color={Colors.primaryLight} />
@@ -69,7 +75,8 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.bottomSheet}>
+      {/* Bottom Sheet */}
+      <View style={[styles.bottomSheet, { paddingBottom: Platform.OS === 'ios' ? 100 : 80 }]}>
         <Text style={styles.whereToTitle}>Where to?</Text>
         
         <View style={styles.searchContainer}>
@@ -91,9 +98,10 @@ export default function HomeScreen() {
           scrollEnabled={false}
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
-};
+}
+
 
 const styles = StyleSheet.create({
   container: {
@@ -211,5 +219,3 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
 });
-
-// export default HomeScreen;

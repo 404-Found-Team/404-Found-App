@@ -32,6 +32,21 @@ export default function SignInScreen() {
     
   };
 
+  const handleGoogleSignIn = () => {
+    // TODO: Implement Google OAuth
+    Alert.alert('Google Sign In', 'Google OAuth will be implemented here');
+  };
+
+  const handleAppleSignIn = () => {
+    // TODO: Implement Apple OAuth
+    Alert.alert('Apple Sign In', 'Apple OAuth will be implemented here');
+  };
+
+  const handleFacebookSignIn = () => {
+    // TODO: Implement Facebook OAuth
+    Alert.alert('Facebook Sign In', 'Facebook OAuth will be implemented here');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
@@ -83,6 +98,37 @@ export default function SignInScreen() {
           >
             <Text style={styles.signInButtonText}>Sign In</Text>
           </TouchableOpacity>
+
+           {/* Divider */}
+           <View style={styles.dividerContainer}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>or continue with</Text>
+            <View style={styles.divider} />
+          </View>
+
+          {/* OAuth Buttons */}
+          <View style={styles.oauthContainer}>
+            <TouchableOpacity 
+              style={styles.oauthButton}
+              onPress={handleGoogleSignIn}
+            >
+              <MaterialCommunityIcons name="google" size={24} color="#DB4437" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.oauthButton}
+              onPress={handleAppleSignIn}
+            >
+              <MaterialCommunityIcons name="apple" size={24} color="#000000" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.oauthButton}
+              onPress={handleFacebookSignIn}
+            >
+              <MaterialCommunityIcons name="facebook" size={24} color="#1877F2" />
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity 
             style={styles.signUpContainer}
@@ -164,6 +210,40 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontSize: 18,
     fontWeight: '600',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: Spacing.lg,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.white + '40',
+  },
+  dividerText: {
+    color: Colors.white,
+    paddingHorizontal: Spacing.md,
+    fontSize: 14,
+  },
+  oauthContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  oauthButton: {
+    width: 60,
+    height: 60,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.round,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   signUpContainer: {
     alignItems: 'center',

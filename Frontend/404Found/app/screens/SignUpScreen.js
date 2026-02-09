@@ -40,6 +40,21 @@ export default function SignUpScreen() {
       ]);
     };
 
+    const handleGoogleSignUp = () => {
+        // TODO: Implement Google OAuth
+        Alert.alert('Google Sign Up', 'Google OAuth will be implemented here');
+      };
+    
+      const handleAppleSignUp = () => {
+        // TODO: Implement Apple OAuth
+        Alert.alert('Apple Sign Up', 'Apple OAuth will be implemented here');
+      };
+    
+      const handleFacebookSignUp = () => {
+        // TODO: Implement Facebook OAuth
+        Alert.alert('Facebook Sign Up', 'Facebook OAuth will be implemented here');
+      };    
+
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar style="light" />
@@ -59,6 +74,37 @@ export default function SignUpScreen() {
 
                     <Text style={styles.title}>Create Account</Text>
                     <Text style={styles.subtitle}>Sign up to start navigating</Text>
+
+                    {/* OAuth Buttons */}
+                    <View style={styles.oauthContainer}>
+                        <TouchableOpacity 
+                        style={styles.oauthButton}
+                        onPress={handleGoogleSignUp}
+                        >
+                        <MaterialCommunityIcons name="google" size={24} color="#DB4437" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                        style={styles.oauthButton}
+                        onPress={handleAppleSignUp}
+                        >
+                        <MaterialCommunityIcons name="apple" size={24} color="#000000" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                        style={styles.oauthButton}
+                        onPress={handleFacebookSignUp}
+                        >
+                        <MaterialCommunityIcons name="facebook" size={24} color="#1877F2" />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Divider */}
+                    <View style={styles.dividerContainer}>
+                        <View style={styles.divider} />
+                        <Text style={styles.dividerText}>or sign up with email</Text>
+                        <View style={styles.divider} />
+                    </View>
 
                     <View style={styles.formContainer}>
                         <TextInput
@@ -161,6 +207,40 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginBottom: Spacing.xl,
     },
+    oauthContainer: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: Spacing.md,
+        marginBottom: Spacing.sm,
+      },
+    oauthButton: {
+        width: 60,
+        height: 60,
+        backgroundColor: Colors.white,
+        borderRadius: BorderRadius.round,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: Colors.black,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3.84,
+        elevation: 5,
+    },
+    dividerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: Spacing.md,
+    },
+    divider: {
+        flex: 1,
+        height: 1,
+        backgroundColor: Colors.white + '40',
+    },
+    dividerText: {
+        color: Colors.white,
+        paddingHorizontal: Spacing.md,
+        fontSize: 14,
+    },
     formContainer: {
         width: '100%',
     },
@@ -178,7 +258,7 @@ const styles = StyleSheet.create({
         borderRadius: BorderRadius.lg,
         paddingVertical: Spacing.md,
         alignItems: 'center',
-        marginTop: Spacing.md,
+        marginTop: Spacing.sm,
         marginBottom: Spacing.lg,
     },
     signUpButtonText: {
@@ -186,7 +266,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '600',
     },
-      signInContainer: {
+    signInContainer: {
         alignItems: 'center',
     },
     signInText: {
