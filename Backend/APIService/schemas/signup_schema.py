@@ -7,8 +7,8 @@ class UserCreate(BaseModel):
     fname: str = Field(..., min_length=1, max_length=75, description="First name")
     lname: str = Field(..., min_length=1, max_length=75, description="Last name")
     email: EmailStr
-    password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
-    confirm_password: str = Field(..., min_length=8, description="Password confirmation")
+    password: str = Field(..., min_length=8, max_length=72, description="Password must be at least 8 characters")
+    confirm_password: str = Field(..., min_length=8, max_length=72, description="Password confirmation")
 
 class UserResponse(BaseModel):
     """Schema for user response"""

@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
+from models.user import User
 from typing import Optional
 
 class LoginRequest(BaseModel):
@@ -9,9 +10,9 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     """Schema for user login response"""
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     user_id: int
-    email: str
 
     class Config:
         from_attributes = True
