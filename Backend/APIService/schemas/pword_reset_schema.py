@@ -20,7 +20,7 @@ class PasswordChangeRequest(BaseModel):
 class PasswordResetResponse(BaseModel):
     """Schema for password reset response"""
     message: str
-    email: str
+    email: EmailStr
 
     class Config:
         from_attributes = True

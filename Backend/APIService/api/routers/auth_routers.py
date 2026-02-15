@@ -5,6 +5,7 @@ from api.deps import get_db, db_dependency
 from models.user import User
 from schemas.signup_schema import UserCreate, UserResponse
 from schemas.login_schema import LoginRequest, LoginResponse
+from schemas.pword_reset_schema import PasswordChangeRequest, PasswordResetRequest, PasswordResetResponse, PasswordResetTokenRequest
 from crud import user as u
 from core import security as s
 
@@ -25,7 +26,7 @@ async def logout(db: db_dependency, current_user: User = Depends(s.get_current_a
     return {"message": "Logged out successfully"}
 
 @router.post("/refresh")
-async def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
+async def refresh_token(refresh_token: str, db: db_dependency):
     try:
         payload = s.verify_refresh_token(refresh_token, db)
         email = payload.get("sub")
@@ -36,3 +37,7 @@ async def refresh_token(refresh_token: str, db: Session = Depends(get_db)):
         if email:
             u.flag_inactive_user(db, email)
         raise
+
+@router.post("/reset")
+async def request_reset(reset_request: PasswordResetRequest):
+    pass
