@@ -1,7 +1,11 @@
 import sqlite3
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from math import floor
+from pathlib import Path
+
+script_dir = Path(__file__).parent.absolute()
+database_file = script_dir / "gsu_commute.db"
 
 """
 Data Dictionary for unclear attributes:
@@ -20,7 +24,7 @@ def get_connection():
     """
     Create connection to in-memory database
     """
-    conn  = sqlite3.connect("gsu_commute.db")
+    conn  = sqlite3.connect(database_file)
     return conn
 
 def create_tables(conn):
@@ -39,7 +43,8 @@ def create_tables(conn):
                  email VARCHAR(255) NOT NULL, \
                  password_hash VARCHAR(255) NOT NULL, \
                  created_at DATETIME NOT NULL, \
-                 updated_at DATETIME) \
+                 updated_at DATETIME, \
+                 is_active INTEGER CHECK(is_active IN (0, 1)) NOT NULL) \
                 ")
 
     cur.execute("DROP TABLE IF EXISTS auth_token")
@@ -47,6 +52,8 @@ def create_tables(conn):
                  (token_hash VARCHAR(255), \
                  user_id INT NOT NULL, \
                  created_at DATETIME NOT NULL, \
+                 expires_at DATETIME NOT NULL, \
+                 revoked INTEGER CHECK(revoked IN (0, 1)) NOT NULL, \
                  PRIMARY KEY(token_hash, user_id), \
                  FOREIGN KEY(user_id) REFERENCES user(user_id)) \
                 ")
@@ -59,7 +66,6 @@ def create_tables(conn):
                  lot_street_address VARCHAR(255) NOT NULL, \
                  available_spaces INT NOT NULL, \
                  percent_open DECIMAL NOT NULL, \
-                 status VARCHAR(10) CHECK(status IN ('Red', 'Yellow', 'Green')) NOT NULL, \
                  timestamp DATETIME NOT NULL) \
                 ")
 
@@ -178,10 +184,11 @@ def populate_user_table(conn):
         lname = random.choice(last_names)
         email = f'{fname.lower()}.{lname.lower()}@gmail.com'
         pword_hash = random.choice(password_hashes)
+        is_active = random.randint(0, 1)
 
-        cur.execute(f"INSERT INTO user (fname, lname, email, password_hash, created_at) \
-                    VALUES (?, ?, ?, ?, ?)",
-                    (fname, lname, email, pword_hash, datetime.now()))
+        cur.execute(f"INSERT INTO user (fname, lname, email, password_hash, created_at, is_active) \
+                    VALUES (?, ?, ?, ?, ?, ?)",
+                    (fname, lname, email, pword_hash, datetime.now(), is_active))
     
     conn.commit()
 
@@ -196,8 +203,12 @@ def populate_token_table(conn):
     for i in range(200):
         token_hash = ''.join(random.choices('0123456789abcdef', k=64)) # Create random 64-char hash strings
         user_id = random.randint(1,50) # Random user ids
-        cur.execute("INSERT INTO auth_token (token_hash, user_id, created_at) \
-                    VALUES (?, ?, ?)", (token_hash, user_id, datetime.now()))
+        created_at = datetime.now()
+        expires_at = datetime.now() + timedelta(days=7)
+        revoked = random.randint(0,1)
+
+        cur.execute("INSERT INTO auth_token (token_hash, user_id, created_at, expires_at, revoked) \
+                    VALUES (?, ?, ?, ?, ?)", (token_hash, user_id, created_at, expires_at, revoked))
     
     conn.commit()
 
@@ -220,15 +231,14 @@ def populate_parking_table(conn):
     
     deck_spaces = [0, 0, 0, 0, 0, 0] # Available spaces in each deck
     increments = [224, 135, 247.5, 135, 93, 314] # Increment value for each pass of the for loop (25% of total spaces)
-    statuses = ['Red', 'Yellow', 'Green', 'Green', 'Green'] # Status color represented by each percentage
 
     cur = conn.cursor()  
     percentage = 0 
     for i in range(5):
         for j in range(6):
-            cur.execute("INSERT INTO parking_status (lot_name, lot_street_address, available_spaces, percent_open, status, timestamp) \
-                        VALUES (?, ?, ?, ?, ?, ?)", 
-                        (lots[j], addresses[j], floor(deck_spaces[j]), percentage, statuses[i], datetime.now()))
+            cur.execute("INSERT INTO parking_status (lot_name, lot_street_address, available_spaces, percent_open, timestamp) \
+                        VALUES (?, ?, ?, ?, ?)", 
+                        (lots[j], addresses[j], floor(deck_spaces[j]), percentage, datetime.now()))
         # Increase available spaces by 25% of total spaces
         for idx in range(len(deck_spaces)):
             deck_spaces[idx] += increments[idx]
