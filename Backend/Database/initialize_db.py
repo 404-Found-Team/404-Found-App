@@ -66,7 +66,6 @@ def create_tables(conn):
                  lot_street_address VARCHAR(255) NOT NULL, \
                  available_spaces INT NOT NULL, \
                  percent_open DECIMAL NOT NULL, \
-                 status VARCHAR(10) CHECK(status IN ('Red', 'Yellow', 'Green')) NOT NULL, \
                  timestamp DATETIME NOT NULL) \
                 ")
 
@@ -232,15 +231,14 @@ def populate_parking_table(conn):
     
     deck_spaces = [0, 0, 0, 0, 0, 0] # Available spaces in each deck
     increments = [224, 135, 247.5, 135, 93, 314] # Increment value for each pass of the for loop (25% of total spaces)
-    statuses = ['Red', 'Yellow', 'Green', 'Green', 'Green'] # Status color represented by each percentage
 
     cur = conn.cursor()  
     percentage = 0 
     for i in range(5):
         for j in range(6):
-            cur.execute("INSERT INTO parking_status (lot_name, lot_street_address, available_spaces, percent_open, status, timestamp) \
-                        VALUES (?, ?, ?, ?, ?, ?)", 
-                        (lots[j], addresses[j], floor(deck_spaces[j]), percentage, statuses[i], datetime.now()))
+            cur.execute("INSERT INTO parking_status (lot_name, lot_street_address, available_spaces, percent_open, timestamp) \
+                        VALUES (?, ?, ?, ?, ?)", 
+                        (lots[j], addresses[j], floor(deck_spaces[j]), percentage, datetime.now()))
         # Increase available spaces by 25% of total spaces
         for idx in range(len(deck_spaces)):
             deck_spaces[idx] += increments[idx]

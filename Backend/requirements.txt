@@ -11,3 +11,8 @@ bcrypt<4.0
 authlib
 starlette
 httpx
+beautifulsoup4
+cloudscraper
+pandas
+selenium 
+webdriver-manager
