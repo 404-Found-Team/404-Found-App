@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.concurrency import run_in_threadpool
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from api.api_v1 import api_router
 
@@ -27,6 +28,24 @@ async def lifespan(app):
     yield
 
 app = FastAPI(title="404 Found API", lifespan=lifespan)
+
+origins = [
+    'http://localhost:8081',
+    'http://localhost:8000',
+    'http://127.0.0.1:8081',
+    'http://127.0.0.1:8000',
+    'http://192.168.1.157:8081',
+    'http://192.168.1.157:8000',
+]
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(api_router)
 

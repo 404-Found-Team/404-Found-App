@@ -9,26 +9,50 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router'; // New
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
+import authService from '../services/authService'
 
 export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSignIn = () => {
+  const handleSignIn = async() => {
+    console.log('=== handleSignIn called ===');
+    console.log('Email:', email);
+    console.log('Password length:', password?.length);
+    
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      console.log('Validation failed - empty fields');
+      Alert.alert('Error', 'Please fill in all fields.');
       return;
     }
     
-    // Navigate to main app
-    router.replace('./HomeScreen');
-    
+    console.log('Setting loading to true');
+    setIsLoading(true);
+    try {
+        console.log('About to call authService.login');
+        const response = await authService.login(email, password);
+        console.log('Login response received:', response);
+        Alert.alert('Success', 'Valid credentials!', [
+            { text: 'OK', onPress: () => router.push('/home') }
+        ]);
+        // Reset form
+        setEmail('');
+        setPassword('');
+    } catch (error) {
+        console.log('Login failed with error:', error);
+        Alert.alert('Error', error?.detail || 'Failed to sign in');
+    } finally {
+      console.log('Setting loading to false');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -71,21 +95,26 @@ export default function SignInScreen() {
 
           <TouchableOpacity 
             style={styles.forgotPassword}
-            onPress={() => router.push('./ForgotPasswordScreen')}
+            onPress={() => router.push('/forgot-password')}
           >
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.signInButton}
             onPress={handleSignIn}
-          >
-            <Text style={styles.signInButtonText}>Sign In</Text>
-          </TouchableOpacity>
+            disabled={isLoading}
+        >
+            {isLoading ? (
+                <ActivityIndicator color={Colors.white} />
+            ) : (
+                <Text style={styles.signInButtonText}>Sign In</Text>
+            )}
+        </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.signUpContainer}
-            onPress={() => router.push('./SignUpScreen')}
+            onPress={() => router.push('/signup')}
           >
             <Text style={styles.signUpText}>
               Don't have an account? <Text style={styles.signUpLink}>Sign Up</Text>

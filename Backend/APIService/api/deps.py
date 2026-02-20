@@ -1,6 +1,6 @@
 from fastapi import Depends
 from typing import Annotated
-from APIService.db.session import SessionLocal
+from db.session import SessionLocal
 from sqlalchemy.orm import Session
 
 # Manage database transactions

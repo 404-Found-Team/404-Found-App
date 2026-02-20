@@ -9,27 +9,50 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router'; // New
+import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from './constants/theme';
+import authService from './services/authService';
 
 export default function SignInScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSignIn = () => {
+  const handleSignIn = async () => {
+    console.log('=== index.tsx handleSignIn called ===');
+    console.log('Email:', email);
+    console.log('Password length:', password?.length);
+    
     if (!email || !password) {
+      console.log('Validation failed - empty fields');
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
     
-    
-    // Navigate to main app
-    router.replace('./screens/HomeScreen');
-    
+    console.log('Setting loading to true');
+    setIsLoading(true);
+    try {
+        console.log('About to call authService.login');
+        const response = await authService.login(email, password);
+        console.log('Login response received:', response);
+        Alert.alert('Success', 'Valid credentials!', [
+            { text: 'OK', onPress: () => router.replace('/home') }
+        ]);
+        // Reset form
+        setEmail('');
+        setPassword('');
+    } catch (error) {
+        console.log('Login failed with error:', error);
+        Alert.alert('Error', (error as any)?.detail || 'Failed to sign in');
+    } finally {
+      console.log('Setting loading to false');
+      setIsLoading(false);
+    }
   };
 
   const handleGoogleSignIn = () => {
@@ -87,7 +110,7 @@ export default function SignInScreen() {
 
           <TouchableOpacity 
             style={styles.forgotPassword}
-            onPress={() => router.push('./screens/ForgotPasswordScreen')}
+            onPress={() => router.push('/forgot-password')}
           >
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
@@ -95,8 +118,13 @@ export default function SignInScreen() {
           <TouchableOpacity 
             style={styles.signInButton}
             onPress={handleSignIn}
+            disabled={isLoading}
           >
-            <Text style={styles.signInButtonText}>Sign In</Text>
+            {isLoading ? (
+                <ActivityIndicator color={Colors.white} />
+            ) : (
+                <Text style={styles.signInButtonText}>Sign In</Text>
+            )}
           </TouchableOpacity>
 
            {/* Divider */}
@@ -132,7 +160,7 @@ export default function SignInScreen() {
 
           <TouchableOpacity 
             style={styles.signUpContainer}
-            onPress={() => router.push('./screens/SignUpScreen')}
+            onPress={() => router.push('/signup')}
           >
             <Text style={styles.signUpText}>
               Don't have an account? <Text style={styles.signUpLink}>Sign Up</Text>

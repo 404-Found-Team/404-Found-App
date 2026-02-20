@@ -20,11 +20,11 @@ Data Dictionary for unclear attributes:
     ROUTE:
         route_path - jsonb datatype storing the road segments traversed in the route
 """
-def get_connection():
+def get_connection(file):
     """
     Create connection to in-memory database
     """
-    conn  = sqlite3.connect(database_file)
+    conn  = sqlite3.connect(file)
     return conn
 
 def create_tables(conn):
@@ -259,7 +259,7 @@ def create_db():
     Call functions to create database schema
     Will also call functions to populate tables with test data for development
     """
-    conn = get_connection()
+    conn = get_connection(database_file)
     try:
         create_tables(conn)
         populate_user_table(conn)

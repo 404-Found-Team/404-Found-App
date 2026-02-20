@@ -10,11 +10,13 @@ import {
     Platform,
     Alert,
     ScrollView,
+    ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
+import authService from '../services/authService';
 
 export default function SignUpScreen() {
     const router = useRouter();
@@ -22,22 +24,41 @@ export default function SignUpScreen() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
-    const handleSignUp = () => {
+    const handleSignUp = async () => {
         if (!fullName || !email || !password || !confirmPassword) {
             Alert.alert('Error', 'Please fill in all fields');
             return;
-    }
+        }
 
-    if (password !== confirmPassword) {
-        Alert.alert('Error', 'Passwords do not match');
-        return;
-      }
-      
-      Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: () => router.back('/') } // used to say SignIn 
-        // And the .back may cancel any changes that were made when updating sign up.
-      ]);
+        if (password !== confirmPassword) {
+            Alert.alert('Error', 'Passwords do not match');
+            return;
+        }
+
+        const nameParts = fullName.trim().split(/\s+/);
+        if (nameParts.length < 2) {
+            Alert.alert('Error', 'Please enter first and last name');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const response = await authService.signup(fullName, email, password, confirmPassword);
+            Alert.alert('Success', 'Account created successfully!', [
+                { text: 'OK', onPress: () => router.push('/signin') }
+            ]);
+            // Reset form
+            setFullName('');
+            setEmail('');
+            setPassword('');
+            setConfirmPassword('');
+        } catch (error) {
+            Alert.alert('Error', error?.detail || 'Failed to create account');
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleGoogleSignUp = () => {
@@ -149,8 +170,13 @@ export default function SignUpScreen() {
                         <TouchableOpacity
                             style={styles.signUpButton}
                             onPress={handleSignUp}
+                            disabled={isLoading}
                         >
-                            <Text style={styles.signUpButtonText}>Sign Up</Text>
+                            {isLoading ? (
+                                <ActivityIndicator color={Colors.white} />
+                            ) : (
+                                <Text style={styles.signUpButtonText}>Sign Up</Text>
+                            )}
                         </TouchableOpacity>
 
                         <TouchableOpacity
