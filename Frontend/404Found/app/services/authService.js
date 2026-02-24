@@ -1,7 +1,7 @@
 import axios from 'axios';
 import tokenService from './tokenService';
 
-const API_BASE_URL = 'http://192.168.1.157:8000/api/v1'; // Update with your actual backend URL
+const API_BASE_URL = 'your-ip:8000/api/v1'; // Update with your actual backend URL
 
 const authService = {
   signup: async (fullName, email, password, confirmPassword) => {
@@ -58,7 +58,9 @@ const authService = {
       });
       
       console.log('Login successful:', response.data);
-      
+
+      // Keychain functionality not available in Expo Go
+      /*
       // Store tokens securely in keychain
       if (response.data.access_token) {
         const userData = {
@@ -67,11 +69,11 @@ const authService = {
         };
         await tokenService.storeToken(
           response.data.access_token,
-          response.data.refresh_token || null,
           userData
         );
       }
-      
+      */
+
       return response.data;
     } catch (error) {
       console.error('Login error:', {
@@ -95,7 +97,7 @@ const authService = {
 
   logout: async () => {
     try {
-      await tokenService.clearTokens();
+      // await tokenService.clearTokens();
       console.log('User logged out successfully');
       return true;
     } catch (error) {

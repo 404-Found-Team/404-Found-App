@@ -88,10 +88,9 @@ def create_tables(conn):
     cur.execute("CREATE TABLE safety_feed \
                  (alert_id INTEGER PRIMARY KEY AUTOINCREMENT, \
                  user_id INT, \
-                 type VARCHAR(75) NOT NULL, \
+                 type VARCHAR(75) NOT NULL CHECK(type IN ('Safety', 'Traffic', 'Construction', 'Delay', 'Weather')), \
                  description TEXT NOT NULL, \
-                 latitude REAL CHECK(latitude >= -90 AND latitude <= 90), \
-                 longitude REAL CHECK(longitude >= -180 AND longitude <= 180), \
+                 location VARCHAR(255) NOT NULL, \
                  upvotes INT NOT NULL, \
                  downvotes INT NOT NULL, \
                  created_at DATETIME NOT NULL, \

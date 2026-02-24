@@ -1,7 +1,6 @@
 import * as Keychain from 'react-native-keychain';
 
 const TOKEN_KEY = '404found_access_token';
-const REFRESH_TOKEN_KEY = '404found_refresh_token';
 const USER_KEY = '404found_user_data';
 const TOKEN_TYPE_KEY = '404found_token_type';
 
@@ -9,24 +8,15 @@ const tokenService = {
   /**
    * Store access token securely in device keychain
    * @param {string} accessToken - The access token to store
-   * @param {string} refreshToken - Optional refresh token to store
    * @param {object} userData - Optional user data to store (user_id, token_type)
    */
-  storeToken: async (accessToken, refreshToken = null, userData = null) => {
+  storeToken: async (accessToken, userData = null) => {
     try {
       // Store access token
       await Keychain.setGenericPassword(TOKEN_KEY, accessToken, {
         accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED,
         service: TOKEN_KEY,
       });
-
-      // Store refresh token if provided
-      if (refreshToken) {
-        await Keychain.setGenericPassword(REFRESH_TOKEN_KEY, refreshToken, {
-          accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED,
-          service: REFRESH_TOKEN_KEY,
-        });
-      }
 
       // Store user data if provided
       if (userData) {
