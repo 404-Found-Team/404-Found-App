@@ -16,16 +16,17 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
+from config import Config
 from api.deps import get_db
 from crud import user as u
 from models.user import User
 from models.auth_token import AuthToken
 
 # Configuration (override with environment variables in production)
-SECRET_KEY = os.environ.get("SECRET_KEY", "change-this-secret-in-production")
-ALGORITHM = os.environ.get("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
-REFRESH_TOKEN_EXPIRE_DAYS = int(os.environ.get("REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+SECRET_KEY = str(Config.SECRET_KEY)
+ALGORITHM = str(Config.ALGORITHM)
+ACCESS_TOKEN_EXPIRE_MINUTES = int(Config.ACCESS_TOKEN_EXPIRE_MINUTES)
+REFRESH_TOKEN_EXPIRE_DAYS = int(Config.REFRESH_TOKEN_EXPIRE_DAYS)
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
