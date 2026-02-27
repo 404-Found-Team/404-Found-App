@@ -47,7 +47,7 @@ export default function SignUpScreen() {
         try {
             const response = await authService.signup(fullName, email, password, confirmPassword);
             Alert.alert('Success', 'Account created successfully!', [
-                { text: 'OK', onPress: () => router.push('/signin') }
+                { text: 'OK', onPress: () => router.push('../screens/SignInScreen') }
             ]);
             // Reset form
             setFullName('');
@@ -153,7 +153,7 @@ export default function SignUpScreen() {
                             placeholderTextColor={Colors.textLight}
                             value={password}
                             onChangeText={setPassword}
-                            secureTextEntry
+                            // secureTextEntry
                             autoCapitalize="none"
                         />
 
@@ -163,7 +163,7 @@ export default function SignUpScreen() {
                             placeholderTextColor={Colors.textLight}
                             value={confirmPassword}
                             onChangeText={setConfirmPassword}
-                            secureTextEntry
+                            // secureTextEntry
                             autoCapitalize="none"
                         />
 

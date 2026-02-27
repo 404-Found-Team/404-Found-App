@@ -1,7 +1,7 @@
 import axios from 'axios';
 import tokenService from './tokenService';
 
-const API_BASE_URL = 'your-ip:8000/api/v1'; // Update with your actual backend URL
+const API_BASE_URL = 'http://127.0.0.1:8000/api/v1'; // 'http://127.0.0.1:8080' //  // Update with your actual backend URL
 
 const authService = {
   signup: async (fullName, email, password, confirmPassword) => {

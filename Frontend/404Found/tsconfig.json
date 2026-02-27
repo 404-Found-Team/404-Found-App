@@ -13,5 +13,5 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-, "app/screens/index.js"  ]
+, "app/index.js"  ] // Used to say app/screens/index.js
 }

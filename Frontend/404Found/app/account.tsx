@@ -1,3 +1,3 @@
-import MyAccountScreen from './screens/MyAccountScreen';
+//import MyAccountScreen from './screens/MyAccountScreen';
 
-export default MyAccountScreen;
+//export default MyAccountScreen;

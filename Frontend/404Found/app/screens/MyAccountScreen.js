@@ -63,7 +63,7 @@ export default function MyAccountScreen() {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => router.push('./SettingsScreen')}
+            onPress={() => router.push('../screens/SettingsScreen')}
           >
             <Icon name="cog" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>

@@ -3,17 +3,19 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '../constants/theme';
 
-import HomeScreen from '../screens/HomeScreen';
-import TransitScreen from '../screens/TransitScreen';
-import ParkingScreen from '../screens/ParkingScreen';
-import RoutesScreen from '../screens/RoutesScreen';
-import AlertsScreen from '../screens/AlertsScreen';
+import HomeScreen from '../screens/tabs/HomeScreen';
+import TransitScreen from '../screens/tabs/TransitScreen';
+import ParkingScreen from '../screens/tabs/ParkingScreen';
+import RoutesScreen from '../screens/tabs/RoutesScreen';
+import AlertsScreen from '../screens/tabs/AlertsScreen';
+import TabLayout from '../_layout'
 
 const Tab = createBottomTabNavigator();
 
 const BottomTabNavigator = () => {
   return (
     <Tab.Navigator
+      initialRouteName='Home'
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Colors.primary,
