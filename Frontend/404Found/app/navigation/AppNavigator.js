@@ -8,7 +8,7 @@ import SignUpScreen from '../screens/SignUpScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import MyAccountScreen from '../screens/MyAccountScreen';
-import BottomTabNavigator from './Bottomtabnavigator';
+// import BottomTabNavigator from './Bottomtabnavigator';
 
 
 const Stack = createStackNavigator();
@@ -36,7 +36,7 @@ const AppNavigator = () => {
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
           {/* </>
         ) : ( */}
-        <Stack.Screen name="MainApp" component={BottomTabNavigator} />
+        {/* Main app navigation is now handled by Expo Router's layout.tsx */}
         {/* )} */}
         {/* <Stack.Screen 
           name="Settings" 

@@ -11,10 +11,16 @@ from datetime import datetime
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+
+from functools import lru_cache
+
 from APIService.api.deps import get_db
 
-
 url = "https://parking.gsu.edu/"
+
+@lru_cache(maxsize=1)
+def call_scraper():
+    return scraper(url, next(get_db()))
 
 def parse_dynamic_content(url: str) -> BeautifulSoup:
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
@@ -66,6 +72,10 @@ def scraper(url, db):
     soup = parse_dynamic_content(url)
     df = initialize_df()
     new_df = scrape_data(soup, df)
+    # Ensure correct types
+    new_df["available_spaces"] = new_df["available_spaces"].astype(int)
+    new_df["percent_open"] = new_df["percent_open"].astype(float)
+    new_df["timestamp"] = new_df["timestamp"].apply(lambda x: int(x.timestamp()))
     # Use the SQLAlchemy connection from the session
     new_df.to_sql(
         name="parking_status",  
@@ -73,8 +83,9 @@ def scraper(url, db):
         if_exists="append",
         index=False
     )
-    json = new_df.to_json()
-    return json
+    # Convert DataFrame to list of dicts (records)
+    records = new_df.to_dict(orient="records")
+    return records
 
 if __name__ == "__main__":
     scraper(url, next(get_db()))

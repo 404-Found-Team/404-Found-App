@@ -14,8 +14,8 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { Colors, Spacing, BorderRadius } from './constants/theme';
-import authService from './services/authService';
+import { Colors, Spacing, BorderRadius } from '../constants/theme';
+import authService from '../services/authService';
 
 // import { NavigationContainer } from '@react-navigation/native';
 // import AppNavigator from './navigation/AppNavigator';
@@ -25,7 +25,7 @@ import authService from './services/authService';
 //   return (
 //     <AuthProvider>
 //       <NavigationContainer>
-//         <AppNavigator />
+//         {/* Navigation is now handled by Expo Router's layout.tsx */}
 //       </NavigationContainer>
 //     </AuthProvider>
 //   );
@@ -55,7 +55,7 @@ export default function SignInScreen() {
         const response = await authService.login(email, password);
         console.log('Login response received:', response);
         Alert.alert('Success', 'Valid credentials!', [
-            { text: 'OK', onPress: () => router.replace('./screens/tabs/HomeScreen') }
+            { text: 'OK', onPress: () => router.push('/(tabs)/home') }
         ]);
         // Reset form
         setEmail('');

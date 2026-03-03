@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../../constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import 'expo-router/entry';
 
 export default function HomeScreen() {
   const router = useRouter();
