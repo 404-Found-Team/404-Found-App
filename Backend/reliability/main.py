@@ -1,4 +1,4 @@
-'''from reliability.security import (
+from reliability.security import (
     validate_environment,
     validate_aws_identity,
     validate_cloudwatch_permissions,
@@ -9,4 +9,3 @@ def reliability_startup_checks():
     validate_environment()
     validate_aws_identity()
     validate_cloudwatch_permissions()
-'''

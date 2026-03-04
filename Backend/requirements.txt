@@ -16,3 +16,4 @@ cloudscraper
 pandas
 selenium 
 webdriver-manager
+tox

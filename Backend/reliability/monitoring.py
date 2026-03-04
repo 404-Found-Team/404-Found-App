@@ -1,4 +1,4 @@
-'''import boto3
+import boto3
 import logging
 import time
 from functools import wraps
@@ -68,4 +68,3 @@ def monitor_pipeline(service_name: str, metric_prefix: str):
         return wrapper
 
     return decorator
-'''

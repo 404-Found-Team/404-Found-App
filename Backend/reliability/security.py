@@ -1,4 +1,4 @@
-'''import os
+import os
 import logging
 from typing import List
 import boto3
@@ -120,4 +120,3 @@ def document_pipeline_behavior() -> dict:
         ],
         "dependencies": PIPELINE_DEPENDENCIES
     }
-'''
