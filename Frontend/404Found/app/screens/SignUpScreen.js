@@ -47,7 +47,7 @@ export default function SignUpScreen() {
         try {
             const response = await authService.signup(fullName, email, password, confirmPassword);
             Alert.alert('Success', 'Account created successfully!', [
-                { text: 'OK', onPress: () => router.push('../screens/SignInScreen') }
+                { text: 'OK', onPress: () => router.back() }
             ]);
             // Reset form
             setFullName('');
@@ -181,7 +181,7 @@ export default function SignUpScreen() {
 
                         <TouchableOpacity
                             style={styles.signInContainer}
-                            onPress={() => router.back('/')} // used to say SignIn
+                            onPress={() => router.back()} // used to say SignIn
                         >
                             <Text style={styles.signInText}>
                                 Already have an account? <Text style={styles.signInLink}>Sign In</Text>
