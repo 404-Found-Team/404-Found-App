@@ -14,8 +14,22 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { Colors, Spacing, BorderRadius } from './constants/theme';
-import authService from './services/authService';
+import { Colors, Spacing, BorderRadius } from '../constants/theme';
+import authService from '../services/authService';
+
+// import { NavigationContainer } from '@react-navigation/native';
+// import AppNavigator from './navigation/AppNavigator';
+// import {AuthProvider} from './context/AuthContext';
+
+// export default function App() {
+//   return (
+//     <AuthProvider>
+//       <NavigationContainer>
+//         {/* Navigation is now handled by Expo Router's layout.tsx */}
+//       </NavigationContainer>
+//     </AuthProvider>
+//   );
+// }
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -41,7 +55,7 @@ export default function SignInScreen() {
         const response = await authService.login(email, password);
         console.log('Login response received:', response);
         Alert.alert('Success', 'Valid credentials!', [
-            { text: 'OK', onPress: () => router.replace('/home') }
+            { text: 'OK', onPress: () => router.push('/(tabs)/home') }
         ]);
         // Reset form
         setEmail('');
@@ -110,7 +124,7 @@ export default function SignInScreen() {
 
           <TouchableOpacity 
             style={styles.forgotPassword}
-            onPress={() => router.push('/forgot-password')}
+            onPress={() => router.push('./screens/ForgotPasswordScreen')}
           >
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
@@ -160,7 +174,7 @@ export default function SignInScreen() {
 
           <TouchableOpacity 
             style={styles.signUpContainer}
-            onPress={() => router.push('/signup')}
+            onPress={() => router.push('./screens/SignUpScreen')}
           >
             <Text style={styles.signUpText}>
               Don't have an account? <Text style={styles.signUpLink}>Sign Up</Text>

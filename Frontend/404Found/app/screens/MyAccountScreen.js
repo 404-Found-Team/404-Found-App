@@ -54,7 +54,11 @@ export default function MyAccountScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.logoButton}>
-          <Icon name="map-marker" size={28} color={Colors.primaryDark} />
+          <TouchableOpacity
+            onPress={() => router.push('../(tabs)/home')}
+          >
+            <Icon name="map-marker" size={28} color={Colors.primaryDark} />
+          </TouchableOpacity>
         </View>
         
         <View style={styles.headerIcons}>
@@ -63,7 +67,7 @@ export default function MyAccountScreen() {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => router.push('./SettingsScreen')}
+            onPress={() => router.push('../screens/SettingsScreen')}
           >
             <Icon name="cog" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>

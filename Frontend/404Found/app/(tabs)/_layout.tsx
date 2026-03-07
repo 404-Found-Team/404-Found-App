@@ -1,85 +1,86 @@
-import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Tabs } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Platform } from 'react-native';
 import { Colors } from '../constants/theme';
 
-import HomeScreen from '../screens/tabs/HomeScreen';
-import TransitScreen from '../screens/tabs/TransitScreen';
-import ParkingScreen from '../screens/tabs/ParkingScreen';
-import RoutesScreen from '../screens/tabs/RoutesScreen';
-import AlertsScreen from '../screens/tabs/AlertsScreen';
-import TabLayout from '../_layout'
-
-const Tab = createBottomTabNavigator();
-
-const BottomTabNavigator = () => {
+export default function TabLayout() {
   return (
-    <Tab.Navigator
-      initialRouteName='Home'
+    <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.iconInactive,
         tabBarStyle: {
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: Colors.white,
           borderTopWidth: 1,
           borderTopColor: Colors.border,
-          height: 85,
-          paddingBottom: 8,
-          paddingTop: 8,
+          height: Platform.OS === 'ios' ? 85 : 70,
+          paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+          paddingTop: 10,
+          elevation: 8,
+          shadowColor: Colors.black,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 3,
         },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '500',
         },
+        tabBarItemStyle: {
+          paddingVertical: 5,
+        },
       }}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
+      <Tabs.Screen
+        name="home"
         options={{
+          title: 'Home',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="home" size={size} color={color} />
           ),
         }}
       />
-      <Tab.Screen
-        name="Transit"
-        component={TransitScreen}
+      <Tabs.Screen
+        name="transit"
         options={{
+          title: 'Transit',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="train" size={size} color={color} />
           ),
         }}
       />
-      <Tab.Screen
-        name="Parking"
-        component={ParkingScreen}
+      <Tabs.Screen
+        name="parking"
         options={{
+          title: 'Parking',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="parking" size={size} color={color} />
           ),
         }}
       />
-      <Tab.Screen
-        name="Routes"
-        component={RoutesScreen}
+      <Tabs.Screen
+        name="routes"
         options={{
+          title: 'Routes',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="routes" size={size} color={color} />
           ),
         }}
       />
-      <Tab.Screen
-        name="Alerts"
-        component={AlertsScreen}
+      <Tabs.Screen
+        name="alerts"
         options={{
+          title: 'Alerts',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="alert" size={size} color={color} />
           ),
         }}
       />
-    </Tab.Navigator>
+    </Tabs>
   );
-};
-
-export default BottomTabNavigator;
+}

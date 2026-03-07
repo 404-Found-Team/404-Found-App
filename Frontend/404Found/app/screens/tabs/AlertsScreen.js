@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
-import { Colors, Spacing, BorderRadius } from '../constants/theme';
+import { Colors, Spacing, BorderRadius } from '../../constants/theme';
 
 export default function AlertsScreen() {
   const router = useRouter();
@@ -93,13 +93,13 @@ export default function AlertsScreen() {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => router.push('Settings')}
+            onPress={() => router.push('../screens/SettingsScreen')}
           >
             <Icon name="cog" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => router.push('MyAccount')}
+            onPress={() => router.push('../screens/MyAccountScreen')}
           >
             <Icon name="account" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
