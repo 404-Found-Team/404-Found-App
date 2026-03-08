@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from models.safety_feed import SafetyFeed
-from schemas.safety_feed_schema import SafetyCreate
+from schemas.safety_feed_schema import SafetyCreate, SafetyData, SafetyDataResponse
 from core import security as s
 from datetime import datetime, timezone
 
@@ -10,7 +10,7 @@ def insert_alert(db: Session, alert: SafetyCreate):
     """
     Insert alert from post request into database
     """
-
+    print(f'User_id: {alert.user_id}')
     db_alert = SafetyFeed(
         user_id=alert.user_id,
         type=alert.type,
@@ -18,7 +18,8 @@ def insert_alert(db: Session, alert: SafetyCreate):
         location=alert.location,
         upvotes=0,
         downvotes=0,
-        created_at=datetime.now()
+        created_at=datetime.now(),
+        is_active=True
     )
 
     db.add(db_alert)
@@ -31,8 +32,27 @@ def get_alerts(db: Session):
     """
     Get all active alerts from the database
     """
-    alerts = db.query(SafetyFeed).filter(SafetyFeed.is_active == True).all()
-    return alerts
+    alert_is_active(db)
+    alerts = db.query(
+        SafetyFeed.type,
+        SafetyFeed.description,
+        SafetyFeed.upvotes,
+        SafetyFeed.downvotes,
+        SafetyFeed.location,
+        SafetyFeed.created_at
+    ).filter(SafetyFeed.is_active == True).all()
+
+    alert_models = [
+        SafetyData(
+            type=a[0],
+            description=a[1],
+            upvotes=a[2],
+            downvotes=a[3],
+            location=a[4],
+            timestamp=a[5]
+        ) for a in alerts
+    ]
+    return SafetyDataResponse(lots=alert_models)
 
 def upvote_alert(db: Session, alert_id: int):
     """

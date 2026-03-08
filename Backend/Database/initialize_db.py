@@ -94,7 +94,7 @@ def create_tables(conn):
                  upvotes INT NOT NULL, \
                  downvotes INT NOT NULL, \
                  created_at DATETIME NOT NULL, \
-                 is_active INTEGER CHECK(is_active IN (0, 1)) NOT NULL), \
+                 is_active INTEGER CHECK(is_active IN (0, 1)) NOT NULL, \
                  FOREIGN KEY(user_id) REFERENCES user(user_id)) \
                 ")
 

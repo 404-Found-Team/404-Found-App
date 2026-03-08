@@ -11,6 +11,7 @@ def post_alert(alert: SafetyCreate, db: db_dependency):
 
 @router.get("/", response_model=SafetyDataResponse)
 def fetch_alerts(db: db_dependency):
+    print("Endpoint hit")
     return s.get_alerts(db)
 
 @router.post("/upvote")
