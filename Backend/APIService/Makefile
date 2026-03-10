@@ -1,4 +1,10 @@
-setup-env:
+init-env-windows:
+	cd ../ && type nul > .env && copy .env.example .env
+
+init-env-mac:
+	cd ../ && touch .env && copy .env.example .env
+
+setup-venv:
 	python -m venv venv && ./venv/Scripts/activate 
 
 install:
