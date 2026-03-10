@@ -1,19 +1,26 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, SafeAreaViewBase } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../../constants/theme';
+import axios from 'axios';
+
 
 export default function ParkingScreen() {
+  const API_BASE_URL = 'http://localhost:8000/api/v1'; // Update with your actual backend URL
+
   const router = useRouter();
-  const [selectedFilter, setSelectedFilter] = useState('All');
-  const filters = ['All', 'Garages', 'Lots', 'Street'];
+  // const [selectedFilter, setSelectedFilter] = useState('All');
+  const [parkingLocations, setParkingLocations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // const filters = ['All', 'Garages', 'Lots', 'Street'];
   
-  const parkingLocations = [
-    { id: '1', name: 'G-Deck Parking', type: 'Garage', address: '123 Main St', distance: '0.3 mi', price: '$2.50/hr', available: 45, total: 120 },
-    { id: '2', name: 'City Center Lot', type: 'Lot', address: '456 Oak Ave', distance: '0.5 mi', price: '$3.00/hr', available: 12, total: 80 },
-  ];
+  // const parkingLocations = [
+  //   { id: '1', name: 'G-Deck Parking', type: 'Garage', address: '123 Main St',  price: '$2.50/hr', available: 45, total: 120 },
+  //   { id: '2', name: 'City Center Lot', type: 'Lot', address: '456 Oak Ave', distance: '0.5 mi', price: '$3.00/hr', available: 12, total: 80 },
+  // ];
 
   const getAvailabilityColor = (available, total) => {
     const percentage = (available / total) * 100;
@@ -21,6 +28,36 @@ export default function ParkingScreen() {
     if (percentage > 20) return Colors.warning;
     return Colors.danger;
   };
+
+  useEffect(() => {
+    const fetchParkingData = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/parking`)
+        const parkingData = response.data.lots.map((lot) => ({
+          id: lot.lot_name, // lot_name will be the unique identifier
+          name: lot.lot_name,
+          address: lot.lot_street_address,
+          available: lot.available_spaces,
+          total: Math.round((lot.available_spaces / (lot.percent_open / 100)) || 0), // Calculate total spaces
+          percentOpen: lot.percent_open,
+        }));
+        setParkingLocations(parkingData);
+      } catch (error) {
+        console.error('Error fetching parking data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchParkingData();
+  }, []);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text>Loading parking data...</Text>
+      </SafeAreaView>
+    )
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -47,7 +84,7 @@ export default function ParkingScreen() {
           <Text style={styles.title}>Parking</Text>
           <Text style={styles.subtitle}>Find available parking nearby</Text>
         </View>
-
+{/* 
         <View style={styles.filterContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {filters.map(filter => (
@@ -56,7 +93,7 @@ export default function ParkingScreen() {
               </TouchableOpacity>
             ))}
           </ScrollView>
-        </View>
+        </View> */}
 
         <View style={styles.locationsContainer}>
           {parkingLocations.map(location => (
@@ -76,10 +113,10 @@ export default function ParkingScreen() {
                     <Text style={styles.address}>{location.address}</Text>
                   </View>
                   <View style={styles.priceAvailabilityRow}>
-                    <View style={styles.priceContainer}>
+                    {/* <View style={styles.priceContainer}>
                       <MaterialCommunityIcons name="currency-usd" size={16} color={Colors.textSecondary} />
                       <Text style={styles.price}>{location.price}</Text>
-                    </View>
+                    </View> */}
                     <View style={[styles.availabilityBadge, { backgroundColor: getAvailabilityColor(location.available, location.total) }]}>
                       <Text style={styles.availabilityText}>{location.available}/{location.total} available</Text>
                     </View>
