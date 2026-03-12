@@ -98,3 +98,12 @@ def flag_inactive_user(db: Session, email: str):
     user.is_active = False
     
     db.commit()
+
+def get_refresh_token_for_user(db: Session, email: str):
+    user_id = db.query(User).filter(User.email == email).first()
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    
+    token = db.query(AuthToken).filter(AuthToken.user_id == user_id).first()
+    
+    return token

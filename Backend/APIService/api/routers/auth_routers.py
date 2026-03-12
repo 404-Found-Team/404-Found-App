@@ -26,17 +26,14 @@ async def logout(db: db_dependency, current_user: User = Depends(s.get_current_a
     return {"message": "Logged out successfully"}
 
 @router.post("/refresh")
-async def refresh_token(refresh_token: str, db: db_dependency):
-    try:
-        payload = s.verify_refresh_token(refresh_token, db)
-        email = payload.get("sub")
-        new_access_token = s.create_access_token(data={"sub": email})
-        return {"access_token": new_access_token, "token_type": "bearer"}
-    except HTTPException:
-        # mark user as inactive on failed refresh (optional)
-        if email:
-            u.flag_inactive_user(db, email)
-        raise
+async def refresh_token(db: db_dependency, current_user: User = Depends(s.get_current_active_user)):
+    refresh_token_obj = u.get_refresh_token_for_user(db, current_user.email)
+    if not refresh_token_obj or not s.is_refresh_token_valid(refresh_token_obj):
+        u.flag_inactive_user(db, current_user.email)
+        raise HTTPException(status_code=401, detail="No valid refresh token found.")
+    
+    new_access_token = s.create_access_token(data={"sub": current_user.email})
+    return {"access_token": new_access_token, "token_type": "bearer"}
 
 @router.post("/reset")
 async def request_reset(reset_request: PasswordResetRequest):

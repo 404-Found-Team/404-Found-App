@@ -131,3 +131,9 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     if not getattr(current_user, "is_active", False):
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
+
+def is_refresh_token_valid(token: AuthToken):
+    if token.expires_at < datetime.now() and token.revoked == False:
+        return True
+    else:
+        return False
