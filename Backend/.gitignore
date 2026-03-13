@@ -6,3 +6,6 @@ venv/
 
 # Ignore environment files inside APIService as well
 /APIService/.env
+
+# Ignore database
+/Database/gsu_commute.db

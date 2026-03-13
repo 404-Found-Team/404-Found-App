@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,44 +10,95 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
+import axios from 'axios';
 
 export default function MyAccountScreen() {
+  const API_BASE_URL = 'http://localhost:8000/api/v1'; // Update with your actual backend URL
   const router = useRouter();
-  const savedPlaces = [
-    { id: '1', name: 'Home', address: '123 Main Street', icon: 'home' },
-    { id: '2', name: 'Work', address: 'Langdale Hall', icon: 'briefcase' },
-    { id: '3', name: 'Gym', address: '456 Oak Avenue', icon: 'dumbbell' },
-  ];
+  const [userInfo, setUserInfo] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const recentTrips = [
-    { 
-      id: '1', 
-      from: 'Home', 
-      to: 'Langdale Hall', 
-      date: 'Today, 8:35 AM',
-      icon: 'car'
-    },
-    { 
-      id: '2', 
-      from: 'Downtown Station', 
-      to: 'Home', 
-      date: 'Yesterday, 5:20 PM',
-      icon: 'train'
-    },
-    { 
-      id: '3', 
-      from: 'Home', 
-      to: 'Airport', 
-      date: 'Jan 28, 7:15 AM',
-      icon: 'car'
-    },
-  ];
+  // Default values for user data
+  const defaultUserInfo = {
+    name: 'Guest User',
+    email: 'guest@example.com',
+    totalTrips: 0,
+    hoursSaved: 0,
+    milesDriven: 0,
+    savedPlaces: [
+      { id: '1', name: 'Home', address: '123 Main Street', icon: 'home' },
+      { id: '2', name: 'Work', address: 'Langdale Hall', icon: 'briefcase' },
+      { id: '3', name: 'Gym', address: '456 Oak Avenue', icon: 'dumbbell' },
+    ],
+    recentTrips: [
+      { id: '1', from: 'Home', to: 'Langdale Hall', date: 'Today, 8:35 AM' },
+      { id: '2', from: 'Work', to: 'Gym', date: 'Yesterday, 6:00 PM' },
+    ],
+  };
 
-  const stats = [
-    { label: 'Trips', value: '127', icon: 'map-marker' },
-    { label: 'Hours\nSaved', value: '42', icon: 'clock-outline' },
-    { label: 'Miles\nDriven', value: '2,543', icon: 'car' },
-  ];
+  // Fetch user info from the backend
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/users/me`); // Replace with the actual endpoint
+        setUserInfo({
+          ...defaultUserInfo, // Use default values as fallback
+          ...response.data, // Override with data from the backend
+        });
+      } catch (error) {
+        console.error('Error fetching user info:', error);
+        setUserInfo(defaultUserInfo); // Use default values if the API call fails
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserInfo();
+  }, []);
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text>Loading user info...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  // const savedPlaces = [
+  //   { id: '1', name: 'Home', address: '123 Main Street', icon: 'home' },
+  //   { id: '2', name: 'Work', address: 'Langdale Hall', icon: 'briefcase' },
+  //   { id: '3', name: 'Gym', address: '456 Oak Avenue', icon: 'dumbbell' },
+  // ];
+
+  // const recentTrips = [
+  //   { 
+  //     id: '1', 
+  //     from: 'Home', 
+  //     to: 'Langdale Hall', 
+  //     date: 'Today, 8:35 AM',
+  //     icon: 'car'
+  //   },
+  //   { 
+  //     id: '2', 
+  //     from: 'Downtown Station', 
+  //     to: 'Home', 
+  //     date: 'Yesterday, 5:20 PM',
+  //     icon: 'train'
+  //   },
+  //   { 
+  //     id: '3', 
+  //     from: 'Home', 
+  //     to: 'Airport', 
+  //     date: 'Jan 28, 7:15 AM',
+  //     icon: 'car'
+  //   },
+  // ];
+
+  // const stats = [
+  //   { label: 'Trips', value: '127', icon: 'map-marker' },
+  //   { label: 'Hours\nSaved', value: '42', icon: 'clock-outline' },
+  //   { label: 'Miles\nDriven', value: '2,543', icon: 'car' },
+  // ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -86,12 +137,12 @@ export default function MyAccountScreen() {
           <View style={styles.avatarContainer}>
             <Icon name="account" size={60} color={Colors.white} />
           </View>
-          <Text style={styles.userName}>John Doe</Text>
-          <Text style={styles.userEmail}>john.doe@email.com</Text>
+          <Text style={styles.userName}>{userInfo.name}</Text>
+          <Text style={styles.userEmail}>{userInfo.email}</Text>
         </View>
 
         {/* Stats */}
-        <View style={styles.statsContainer}>
+        {/* <View style={styles.statsContainer}>
           {stats.map((stat, index) => (
             <View key={index} style={styles.statCard}>
               <Icon name={stat.icon} size={28} color={Colors.primaryDark} />
@@ -99,6 +150,21 @@ export default function MyAccountScreen() {
               <Text style={styles.statLabel}>{stat.label}</Text>
             </View>
           ))}
+        </View> */}
+        
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{userInfo.totalTrips}</Text>
+            <Text style={styles.statLabel}>Total Trips</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{userInfo.hoursSaved}</Text>
+            <Text style={styles.statLabel}>Hours Saved</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{userInfo.milesDriven}</Text>
+            <Text style={styles.statLabel}>Miles Driven</Text>
+          </View>
         </View>
 
         {/* Saved Places */}
@@ -106,7 +172,7 @@ export default function MyAccountScreen() {
           <Text style={styles.sectionTitle}>Saved Places</Text>
           
           <View style={styles.placesContainer}>
-            {savedPlaces.map(place => (
+            {userInfo?.savedPlaces?.map(place => (
               <TouchableOpacity key={place.id} style={styles.placeCard}>
                 <Icon name="map-marker" size={20} color={Colors.textSecondary} />
                 <View style={styles.placeInfo}>
@@ -128,7 +194,7 @@ export default function MyAccountScreen() {
           <Text style={styles.sectionTitle}>Recent Trips</Text>
           
           <View style={styles.tripsContainer}>
-            {recentTrips.map(trip => (
+            {userInfo?.recentTrips?.map(trip => (
               <TouchableOpacity key={trip.id} style={styles.tripCard}>
                 <View style={styles.tripIcon}>
                   <Icon name={trip.icon} size={24} color={Colors.primaryDark} />

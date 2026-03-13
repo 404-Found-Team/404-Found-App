@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,74 +10,187 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../../constants/theme';
+import axios from 'axios';
 
 export default function AlertsScreen() {
+  const API_BASE_URL = 'http://localhost:8000/api/v1'; // Update with your actual backend URL
   const router = useRouter();
-  const [alertPreferences, setAlertPreferences] = useState({
-    trafficAlerts: true,
-    constructionUpdates: true,
-    transitDelays: true,
-    weatherWarnings: false,
-  });
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const alertSummary = [
-    { type: 'Traffic Alerts', count: 1, color: Colors.alertYellow },
-    { type: 'Construction', count: 1, color: Colors.alertOrange },
-  ];
+  // Fetch alerts from the backend
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/safety`);
+        const alertData = response.data.lots.map((alert, index) => ({
+          id: index.toString(), // Generate a unique ID for each alert
+          type: alert.type,
+          title: alert.type.charAt(0).toUpperCase() + alert.type.slice(1), // Capitalize the type for the title
+          description: alert.description,
+          location: alert.location,
+          time: new Date(alert.timestamp).toLocaleString(), // Format timestamp
+          upvotes: alert.upvotes,
+          downvotes: alert.downvotes,
+          backgroundColor: getAlertColor(alert.type),
+          icon: getAlertIcon(alert.type),
+          iconColor: getAlertIconColor(alert.type),
+        }));
 
-  const alerts = [
-    {
-      id: '1',
-      type: 'traffic',
-      icon: 'alert',
-      iconColor: '#F5A623',
-      title: 'Heavy Traffic on I-75 North',
-      description: 'Expect delays of up to 15 minutes due to high traffic volume.',
-      location: 'I-75 North between Exit 12 and Exit 15',
-      time: '5 min ago',
-      backgroundColor: Colors.alertYellow,
-    },
-    {
-      id: '2',
-      type: 'construction',
-      icon: 'road-variant',
-      iconColor: '#E67E22',
-      title: 'Road Construction',
-      description: 'Left lane closed on Oak Avenue. Use alternate route.',
-      location: 'Oak Avenue near Main Street',
-      time: '1 hour ago',
-      backgroundColor: Colors.alertOrange,
-    },
-    {
-      id: '3',
-      type: 'accident',
-      icon: 'alert-circle',
-      iconColor: '#E74C3C',
-      title: 'Accident Reported',
-      description: 'Minor accident blocking right lane. Emergency services on scene.',
-      location: 'I-675 South near Exit 8',
-      time: '2 hours ago',
-      backgroundColor: Colors.alertRed,
-    },
-    {
-      id: '4',
-      type: 'transit',
-      icon: 'information',
-      iconColor: '#3498DB',
-      title: 'Red Line Delay',
-      description: 'Train delays of 5-10 minutes due to signal maintenance.',
-      location: 'Red Line - All Stations',
-      time: '3 hours ago',
-      backgroundColor: Colors.alertBlue,
-    },
-  ];
+        // If no alerts are returned, add a hardcoded alert for testing
+        // if (alertData.length === 0) {
+        //   alertData.push({
+        //     id: 'test-alert',
+        //     type: 'Traffic',
+        //     title: 'Test Alert',
+        //     description: 'This is a hardcoded test alert.',
+        //     location: 'Test Location',
+        //     time: 'Just now',
+        //     upvotes: 0,
+        //     downvotes: 0,
+        //     backgroundColor: Colors.alertYellow,
+        //     icon: 'alert',
+        //     iconColor: '#F5A623',
+        //   });
+        // }
 
-  const togglePreference = (key) => {
-    setAlertPreferences(prev => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+        setAlerts(alertData);
+      } catch (error) {
+        console.error('Error fetching alerts:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAlerts();
+  }, []);
+
+  const getAlertColor = (type) => {
+    switch (type) {
+      case 'Traffic':
+        return Colors.alertYellow;
+      case 'Construction':
+        return Colors.alertOrange;
+      case 'Accident':
+        return Colors.alertRed;
+      case 'Transit':
+        return Colors.alertBlue;
+      default:
+        return Colors.alertGray;
+    }
   };
+
+  const getAlertIcon = (type) => {
+    switch (type) {
+      case 'Traffic':
+        return 'alert';
+      case 'Construction':
+        return 'road-variant';
+      case 'Accident':
+        return 'alert-circle';
+      case 'Transit':
+        return 'train';
+      default:
+        return 'information';
+    }
+  };
+
+  const getAlertIconColor = (type) => {
+    switch (type) {
+      case 'Traffic':
+        return '#F5A623';
+      case 'Construction':
+        return '#E67E22';
+      case 'Accident':
+        return '#E74C3C';
+      case 'Transit':
+        return '#3498DB';
+      default:
+        return '#7F8C8D';
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text>Loading alerts...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  // const [alertPreferences, setAlertPreferences] = useState({
+  //   trafficAlerts: true,
+  //   constructionUpdates: true,
+  //   transitDelays: true,
+  //   weatherWarnings: false,
+  // });
+
+  // const alertSummary = [
+  //   { type: 'Traffic Alerts', count: 1, color: Colors.alertYellow },
+  //   { type: 'Construction', count: 1, color: Colors.alertOrange },
+  // ];
+
+  // alerts = [
+  //   {
+  //     id: '1',
+  //     type: 'traffic',
+  //     icon: 'alert',
+  //     iconColor: '#F5A623',
+  //     title: 'Heavy Traffic on I-75 North',
+  //     description: 'Expect delays of up to 15 minutes due to high traffic volume.',
+  //     location: 'I-75 North between Exit 12 and Exit 15',
+  //     time: '5 min ago',
+  //     upvotes: 5,
+  //     downvotes: 1,
+  //     backgroundColor: Colors.alertYellow,
+  //   },
+  //   {
+  //     id: '2',
+  //     type: 'construction',
+  //     icon: 'road-variant',
+  //     iconColor: '#E67E22',
+  //     title: 'Road Construction',
+  //     description: 'Left lane closed on Oak Avenue. Use alternate route.',
+  //     location: 'Oak Avenue near Main Street',
+  //     time: '1 hour ago',
+  //     upvotes: 5,
+  //     downvotes: 1,
+  //     backgroundColor: Colors.alertOrange,
+  //   },
+  //   {
+  //     id: '3',
+  //     type: 'accident',
+  //     icon: 'alert-circle',
+  //     iconColor: '#E74C3C',
+  //     title: 'Accident Reported',
+  //     description: 'Minor accident blocking right lane. Emergency services on scene.',
+  //     location: 'I-675 South near Exit 8',
+  //     time: '2 hours ago',
+  //     upvotes: 5,
+  //     downvotes: 1,
+  //     backgroundColor: Colors.alertRed,
+  //   },
+  //   {
+  //     id: '4',
+  //     type: 'transit',
+  //     icon: 'information',
+  //     iconColor: '#3498DB',
+  //     title: 'Red Line Delay',
+  //     description: 'Train delays of 5-10 minutes due to signal maintenance.',
+  //     location: 'Red Line - All Stations',
+  //     time: '3 hours ago',
+  //     upvotes: 5,
+  //     downvotes: 1,
+  //     backgroundColor: Colors.alertBlue,
+  //   },
+  // ];
+
+  // const togglePreference = (key) => {
+  //   setAlertPreferences(prev => ({
+  //     ...prev,
+  //     [key]: !prev[key],
+  //   }));
+  // };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -113,7 +226,7 @@ export default function AlertsScreen() {
           <Text style={styles.subtitle}>Traffic updates and notifications</Text>
         </View>
 
-        {/* Alert Summary */}
+        {/* Alert Summary
         <View style={styles.summaryContainer}>
           {alertSummary.map((item, index) => (
             <View 
@@ -124,11 +237,12 @@ export default function AlertsScreen() {
               <Text style={styles.summaryType}>{item.type}</Text>
             </View>
           ))}
-        </View>
+        </View> */}
 
         {/* Active Alerts */}
         <View style={styles.alertsContainer}>
-          {alerts.map(alert => (
+          {alerts.length > 0 ? (
+            alerts.map(alert => (
             <View 
               key={alert.id} 
               style={[styles.alertCard, { backgroundColor: alert.backgroundColor }]}
@@ -136,9 +250,9 @@ export default function AlertsScreen() {
               <View style={styles.alertHeader}>
                 <Icon name={alert.icon} size={24} color={alert.iconColor} />
                 <Text style={styles.alertTitle}>{alert.title}</Text>
-                <TouchableOpacity style={styles.closeButton}>
+                {/* <TouchableOpacity style={styles.closeButton}>
                   <Icon name="close" size={20} color={Colors.textSecondary} />
-                </TouchableOpacity>
+                </TouchableOpacity> */}
               </View>
               
               <Text style={styles.alertDescription}>{alert.description}</Text>
@@ -154,11 +268,17 @@ export default function AlertsScreen() {
                 </View>
               </View>
             </View>
-          ))}
+          )) 
+        ) : (
+          <View style={styles.noAlertsContainer}>
+            <Icon name="alert-circle-outline" size={64} color={Colors.textLight} />
+            <Text style={styles.noAlertsText}>No alerts available at the moment.</Text>
+          </View>
+        )}
         </View>
 
         {/* Alert Preferences */}
-        <View style={styles.preferencesSection}>
+        {/* <View style={styles.preferencesSection}>
           <Text style={styles.preferencesTitle}>Alert Preferences</Text>
           
           <View style={styles.preferencesList}>
@@ -210,7 +330,7 @@ export default function AlertsScreen() {
               <Text style={styles.preferenceText}>Weather warnings</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </View> */}
       </ScrollView>
     </SafeAreaView>
   );
@@ -287,6 +407,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   alertsContainer: {
+    paddingTop: Spacing.sm,
     paddingHorizontal: Spacing.lg,
     paddingBottom: Spacing.lg,
   },
@@ -360,5 +481,16 @@ const styles = StyleSheet.create({
   preferenceText: {
     fontSize: 16,
     color: Colors.textPrimary,
+  },
+  noAlertsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: Spacing.lg,
+  },
+  noAlertsText: {
+    marginTop: Spacing.md,
+    fontSize: 16,
+    color: Colors.textSecondary,
+    textAlign: 'center',
   },
 });
