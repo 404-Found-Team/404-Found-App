@@ -108,3 +108,14 @@ def get_refresh_token_for_user(db: Session, email: str):
     if token is None:
         raise HTTPException(status_code=401, detail="User not found")
     return token
+
+def get_user_info(db: Session, email: str):
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User not found")
+    return {
+        "email": user.email,
+        "first_name": user.fname,
+        "last_name": user.lname
+    }
+    

@@ -34,14 +34,24 @@ async def logout(db: db_dependency, token: str = Depends(s.oauth2_scheme)):
 @router.post("/refresh")
 async def refresh_token(db: db_dependency, access_token: str):
     data = s.decode_token(access_token)
-    refresh_token_obj = u.get_refresh_token_for_user(db, data['sub'])
-    if not refresh_token_obj or not s.is_refresh_token_valid(refresh_token_obj):
-        u.flag_inactive_user(db, data['sub'])
-        raise HTTPException(status_code=401, detail="No valid refresh token found.")
-    
-    new_access_token = s.create_access_token(data={"sub": data['sub']})
-    return {"access_token": new_access_token, "token_type": "bearer"}
+    if data:
+        refresh_token_obj = u.get_refresh_token_for_user(db, data['sub'])
+        if not refresh_token_obj or not s.is_refresh_token_valid(refresh_token_obj):
+            u.flag_inactive_user(db, data['sub'])
+            raise HTTPException(status_code=401, detail="No valid refresh token found.")
+        
+        new_access_token = s.create_access_token(data={"sub": data['sub']})
+        return {"access_token": new_access_token, "token_type": "bearer"}
+    raise HTTPException(status_code=401, detail="Invalid access token")
 
 @router.post("/reset")
 async def request_reset(reset_request: PasswordResetRequest):
     pass
+
+@router.get("/me")
+async def user_info(db: db_dependency, token: str = Depends(s.oauth2_scheme)):
+    data = s.decode_token(token)
+    if data:
+        email = data['sub']
+        info = u.get_user_info(db, email)
+        return info

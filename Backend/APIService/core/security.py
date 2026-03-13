@@ -53,7 +53,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def decode_token(token:str):
-    return jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM, options={'verify_exp': False})
+    data = jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM, options={'verify_exp': False})
+    if data: 
+        return data
+    return None
 
 def create_refresh_token(
     data: dict,

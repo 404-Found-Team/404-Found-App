@@ -66,29 +66,6 @@ const tokenService = {
   },
 
   /**
-   * Retrieve refresh token from device keychain
-   * @returns {Promise<string|null>} - The stored refresh token or null
-   */
-  getRefreshToken: async () => {
-    try {
-      const credentials = await Keychain.getGenericPassword({
-        service: REFRESH_TOKEN_KEY,
-      });
-
-      if (credentials) {
-        console.log('Refresh token retrieved from keychain');
-        return credentials.password;
-      }
-
-      console.log('No refresh token found in keychain');
-      return null;
-    } catch (error) {
-      console.error('Error retrieving refresh token:', error);
-      return null;
-    }
-  },
-
-  /**
    * Retrieve user data from device keychain
    * @returns {Promise<object|null>} - The stored user data or null
    */
