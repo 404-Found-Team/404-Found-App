@@ -6,3 +6,9 @@ venv/
 
 # Ignore environment files inside APIService as well
 /APIService/.env
+
+# Ignore Database file
+/Database/gsu_commute.db
+
+# Ignore all pycache files
+*.pyc
