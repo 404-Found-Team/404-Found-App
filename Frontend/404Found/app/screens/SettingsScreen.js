@@ -12,6 +12,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
+import authService from '../services/authService';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export default function SettingsScreen() {
         { 
           text: 'Sign Out', 
           style: 'destructive',
-          onPress: () => router.replace('/')
+          onPress: signOutLogic
           /*({
             index: 0,
             routes: [{ name: 'SignIn' }],
@@ -34,6 +35,17 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  const signOutLogic = async () => {
+    try {
+      const response = await authService.logout();
+      Alert.alert('Success', 'Successfully logged out!', [
+          { text: 'OK', onPress: () => router.replace('/') }
+            ]);
+    } catch (error) {
+                Alert.alert('Error', error?.detail || 'Failed to log out');
+    }
   };
 
   const SettingItem = ({ icon, title, value, onPress, showArrow = true }) => (

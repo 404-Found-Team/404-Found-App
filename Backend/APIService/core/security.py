@@ -52,6 +52,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode.update({"exp": expire, "iat": now})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+def decode_token(token:str):
+    return jwt.decode(token, SECRET_KEY, algorithms=ALGORITHM, options={'verify_exp': False})
 
 def create_refresh_token(
     data: dict,
@@ -80,6 +82,7 @@ def create_refresh_token(
             subject = data.get("sub")
             if subject is not None:
                 subject = str(subject)
+                u.revoke_refresh_token(db, subject)
                 u.store_refresh_token(db, subject, token, expire)
             else:
                 raise Exception

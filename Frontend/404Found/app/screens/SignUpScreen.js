@@ -153,7 +153,7 @@ export default function SignUpScreen() {
                             placeholderTextColor={Colors.textLight}
                             value={password}
                             onChangeText={setPassword}
-                            // secureTextEntry
+                            secureTextEntry
                             autoCapitalize="none"
                         />
 
@@ -163,7 +163,7 @@ export default function SignUpScreen() {
                             placeholderTextColor={Colors.textLight}
                             value={confirmPassword}
                             onChangeText={setConfirmPassword}
-                            // secureTextEntry
+                            secureTextEntry
                             autoCapitalize="none"
                         />
 

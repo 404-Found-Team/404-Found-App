@@ -9,7 +9,7 @@ from core import security as s
 from datetime import datetime, timezone
 
 def create_user(db: Session, user: UserCreate):
-    if db.query(User).filter(User.email == user.email).first():
+    if get_user_from_email(db, user.email):
         raise HTTPException(
             status_code=404,
             detail='User already created!'
@@ -31,22 +31,22 @@ def create_user(db: Session, user: UserCreate):
     return db_user
 
 def verify_password(db: Session, credentials: LoginRequest):
-    db_user = db.query(User).filter(User.email == credentials.email).first()
-    if not db_user or not s.verify_pword(credentials.password, db_user.password_hash):
+    user = get_user_from_email(db, credentials.email)
+    if not user or not s.verify_pword(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    access_token = s.create_access_token(data={"sub": db_user.email})
-    refresh_token = s.create_refresh_token(data={"sub": db_user.email}, db=db)
-    flag_active_user(db, db_user.email)
+    access_token = s.create_access_token(data={"sub": user.email})
+    refresh_token = s.create_refresh_token(data={"sub": user.email}, db=db)
+    flag_active_user(db, user.email)
 
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user_id": db_user.user_id
+        "user_id": user.user_id
     }
 
 def store_refresh_token(db: Session, email: str, token: str, expires: datetime) -> None:
-    user = db.query(User).filter(User.email == email).first()
+    user = get_user_from_email(db, email)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
@@ -62,8 +62,12 @@ def store_refresh_token(db: Session, email: str, token: str, expires: datetime) 
     db.add(token)
     db.commit()
 
-def revoke_refresh_token(db: Session, token: str) -> None:
-    token_obj = db.query(AuthToken).filter(AuthToken.token_hash == token).first()
+def get_user_from_email(db: Session, email: str):
+    user = db.query(User).filter(User.email == email).first()
+    return user
+
+def revoke_refresh_token(db: Session, email: str) -> None:
+    token_obj = db.query(AuthToken).join(User).filter(User.email == email).first()
     if token_obj:
         token_obj.revoked = True
         db.commit()
@@ -82,7 +86,7 @@ def is_refresh_revoked(db: Session, token: str) -> bool:
     return False
 
 def flag_active_user(db: Session, email: str):
-    user = db.query(User).filter(User.email == email).first()
+    user = get_user_from_email(db, email)
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
     
@@ -91,7 +95,7 @@ def flag_active_user(db: Session, email: str):
     db.commit()
 
 def flag_inactive_user(db: Session, email: str):
-    user = db.query(User).filter(User.email == email).first()
+    user = get_user_from_email(db, email)
     if user is None:
         raise HTTPException(status_code=401, detail="User not found")
     
@@ -100,10 +104,7 @@ def flag_inactive_user(db: Session, email: str):
     db.commit()
 
 def get_refresh_token_for_user(db: Session, email: str):
-    user_id = db.query(User).filter(User.email == email).first()
-    if user_id is None:
+    token = db.query(AuthToken).join(User).filter(User.email == email).first()
+    if token is None:
         raise HTTPException(status_code=401, detail="User not found")
-    
-    token = db.query(AuthToken).filter(AuthToken.user_id == user_id).first()
-    
     return token

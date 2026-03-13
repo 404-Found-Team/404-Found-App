@@ -1,7 +1,6 @@
 import axios from 'axios';
-import tokenService from './tokenService';
 
-const API_BASE_URL = 'http://localhost:8000/api/v1'; // Update with your actual backend URL
+const API_BASE_URL = 'http://192.168.1.157:8000/api/v1'; // Update with your actual backend URL
 
 const authService = {
   signup: async (fullName, email, password, confirmPassword) => {
@@ -58,6 +57,8 @@ const authService = {
       });
       
       console.log('Login successful:', response.data);
+      window.access_token = response.data.access_token;
+      window.user_id = response.data.user_id;
 
       // Keychain functionality not available in Expo Go
       /*
@@ -98,8 +99,33 @@ const authService = {
   logout: async () => {
     try {
       // await tokenService.clearTokens();
-      console.log('User logged out successfully');
-      return true;
+      console.log('Attempting logout to:', `${API_BASE_URL}/users/logout`);
+      // Try to get token from tokenService, fallback to window.access_token
+      /*
+      
+      if (tokenService.getAccessToken) {
+        accessToken = await tokenService.getAccessToken();
+      }
+      */
+
+      let accessToken = null;
+      
+      if (typeof window !== 'undefined') {
+        accessToken = window.access_token;
+      } else {
+        throw new Error('No access token found for logout');
+      }
+      const response = await axios.post(
+        `${API_BASE_URL}/users/logout`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+      console.log('Logout successful:', response.data);
+      return response.data;
     } catch (error) {
       console.error('Logout error:', error);
       throw error;

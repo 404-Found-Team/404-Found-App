@@ -20,19 +20,26 @@ def login(user: LoginRequest, db: db_dependency):
     return u.verify_password(db, user)
 
 @router.post("/logout")
-async def logout(db: db_dependency, current_user: User = Depends(s.get_current_active_user)):
-    u.flag_inactive_user(db, current_user.email)
-    # optionally revoke all refresh tokens for this user
+async def logout(db: db_dependency, token: str = Depends(s.oauth2_scheme)):
+    data = s.decode_token(token)
+    if data:
+        email = data['sub']
+        u.flag_inactive_user(db, email)
+        # Revoke all refresh tokens for this user
+        token_obj = u.get_refresh_token_for_user(db, email)
+        if token_obj is not None:
+            u.revoke_refresh_token(db, email)
     return {"message": "Logged out successfully"}
 
 @router.post("/refresh")
-async def refresh_token(db: db_dependency, current_user: User = Depends(s.get_current_active_user)):
-    refresh_token_obj = u.get_refresh_token_for_user(db, current_user.email)
+async def refresh_token(db: db_dependency, access_token: str):
+    data = s.decode_token(access_token)
+    refresh_token_obj = u.get_refresh_token_for_user(db, data['sub'])
     if not refresh_token_obj or not s.is_refresh_token_valid(refresh_token_obj):
-        u.flag_inactive_user(db, current_user.email)
+        u.flag_inactive_user(db, data['sub'])
         raise HTTPException(status_code=401, detail="No valid refresh token found.")
     
-    new_access_token = s.create_access_token(data={"sub": current_user.email})
+    new_access_token = s.create_access_token(data={"sub": data['sub']})
     return {"access_token": new_access_token, "token_type": "bearer"}
 
 @router.post("/reset")
