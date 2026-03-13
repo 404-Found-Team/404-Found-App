@@ -180,6 +180,7 @@ const styles = StyleSheet.create({
   },
   section: {
     padding: Spacing.lg,
+    paddingBottom: Spacing.xxl,
   },
   sectionTitle: {
     fontSize: 18,

@@ -235,6 +235,7 @@ const styles = StyleSheet.create({
   },
   routesContainer: {
     padding: Spacing.lg,
+    paddingBottom: Spacing.xxl,
   },
   routeCard: {
     backgroundColor: Colors.white,

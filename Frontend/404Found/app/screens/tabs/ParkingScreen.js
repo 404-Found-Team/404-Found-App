@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   filterButtonActive: { backgroundColor: Colors.primary },
   filterText: { fontSize: 14, color: Colors.textSecondary, fontWeight: '500' },
   filterTextActive: { color: Colors.white },
-  locationsContainer: { padding: Spacing.lg },
+  locationsContainer: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
   locationCard: { backgroundColor: Colors.white, borderRadius: BorderRadius.md, padding: Spacing.md, marginBottom: Spacing.md, borderWidth: 1, borderColor: Colors.border },
   locationHeader: { flexDirection: 'row', marginBottom: Spacing.md },
   parkingIcon: { width: 60, height: 60, backgroundColor: Colors.primaryLight, borderRadius: BorderRadius.md, justifyContent: 'center', alignItems: 'center', marginRight: Spacing.md },
