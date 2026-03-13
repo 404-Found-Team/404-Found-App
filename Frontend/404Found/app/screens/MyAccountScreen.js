@@ -11,20 +11,22 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 import axios from 'axios';
+import { getAccessToken } from '../services/authService';
 
 export default function MyAccountScreen() {
-  const API_BASE_URL = 'http://localhost:8000/api/v1'; // Update with your actual backend URL
+  const API_BASE_URL = 'http://192.168.1.157:8000/api/v1'; // Update with your actual backend URL
   const router = useRouter();
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const accessToken = getAccessToken();
 
   // Default values for user data
   const defaultUserInfo = {
     name: 'Guest User',
     email: 'guest@example.com',
-    totalTrips: 0,
+    totalTrips: 2,
     hoursSaved: 0,
-    milesDriven: 0,
+    milesDriven: 20,
     savedPlaces: [
       { id: '1', name: 'Home', address: '123 Main Street', icon: 'home' },
       { id: '2', name: 'Work', address: 'Langdale Hall', icon: 'briefcase' },
@@ -40,7 +42,15 @@ export default function MyAccountScreen() {
   useEffect(() => {
     const fetchUserInfo = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/users/me`); // Replace with the actual endpoint
+        console.log(`Token: ${accessToken}`)
+        const response = await axios.get(
+          `${API_BASE_URL}/users/me`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        ); 
         setUserInfo({
           ...defaultUserInfo, // Use default values as fallback
           ...response.data, // Override with data from the backend
@@ -137,7 +147,7 @@ export default function MyAccountScreen() {
           <View style={styles.avatarContainer}>
             <Icon name="account" size={60} color={Colors.white} />
           </View>
-          <Text style={styles.userName}>{userInfo.name}</Text>
+          <Text style={styles.userName}>{userInfo.first_name} {userInfo.last_name}</Text>
           <Text style={styles.userEmail}>{userInfo.email}</Text>
         </View>
 

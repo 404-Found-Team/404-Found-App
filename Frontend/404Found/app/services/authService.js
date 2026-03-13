@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://192.168.1.157:8000/api/v1'; // Update with your actual backend URL
+const API_BASE_URL = 'http://localhost:8000/api/v1'; // Update with your actual backend URL
 
 const authService = {
   signup: async (fullName, email, password, confirmPassword) => {
@@ -58,7 +58,6 @@ const authService = {
       
       console.log('Login successful:', response.data);
       window.access_token = response.data.access_token;
-      window.user_id = response.data.user_id;
 
       // Keychain functionality not available in Expo Go
       /*
@@ -133,4 +132,5 @@ const authService = {
   },
 };
 
+export const getAccessToken = () => window.access_token;
 export default authService;
