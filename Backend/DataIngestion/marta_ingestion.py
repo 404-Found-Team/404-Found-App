@@ -6,6 +6,7 @@ from config import Config
 import requests
 import json
 import pandas as pd
+import cachetools.func
 
 MARTA_API_KEY = Config.MARTA_API_KEY
 BASE_URL = 'https://developerservices.itsmarta.com:18096/itsmarta'
@@ -18,8 +19,11 @@ url = f'{BASE_URL}{TRAIN_PATH}'
 params = {
     "apiKey": MARTA_API_KEY
 }
+@cachetools.func.ttl_cache(maxsize=1, ttl=30)
+def call_marta():
+    return marta_request(next(get_db()))
 
-def generate_dataframe(db):
+def marta_request(db):
     try:
         response = requests.get(url, params=params)
         response.raise_for_status()
@@ -33,8 +37,15 @@ def generate_dataframe(db):
         if not isinstance(data, list):
             print(f"Unexpected data format: {type(data)}")
             print(f"Data: {data}")
-            return
+            return 
+        
+        return generate_dataframe(data, db)
+    
+    except requests.RequestException as e:
+        print(f"Request error: {e}")
 
+def generate_dataframe(data, db):
+    try:
         df = pd.DataFrame(columns=['line', 'direction', 'station', 'destination', 'next_arrival', 'waiting_seconds', 'timestamp'])
         for item in data:
             try:
@@ -62,12 +73,11 @@ def generate_dataframe(db):
             )
         except Exception as e:
             print(f"Error writing to database: {e}")
-        print(df)
+  
         records = df.to_dict(orient="records")
-        print(records)
+        return records
+    
     except requests.RequestException as e:
         print(f"Request error: {e}")
     except Exception as e:
         print(f"Unexpected error: {e}")
-    
-generate_dataframe(next(get_db()))

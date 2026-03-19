@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 # Add Backend directory to Python path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from DataIngestion.webscraper import call_scraper
 from models.parking_lots import Lot
