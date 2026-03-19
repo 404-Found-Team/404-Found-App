@@ -13,12 +13,13 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 from functools import lru_cache
+import cachetools.func
 
 from APIService.api.deps import get_db
 
 url = "https://parking.gsu.edu/"
 
-@lru_cache(maxsize=1)
+@cachetools.func.ttl_cache(maxsize=1, ttl=30)
 def call_scraper():
     return scraper(url, next(get_db()))
 

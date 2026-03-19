@@ -14,7 +14,7 @@ import axios from 'axios';
 import { getAccessToken } from '../services/authService';
 
 export default function MyAccountScreen() {
-  const API_BASE_URL = 'http://192.168.1.157:8000/api/v1'; // Update with your actual backend URL
+  const API_BASE_URL = 'http://localhost:8000/api/v1'; // Update with your actual backend URL
   const router = useRouter();
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);

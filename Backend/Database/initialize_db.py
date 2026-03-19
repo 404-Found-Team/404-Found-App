@@ -102,12 +102,11 @@ def create_tables(conn):
     cur.execute("CREATE TABLE marta_status \
                  (status_id INTEGER PRIMARY KEY AUTOINCREMENT, \
                  line VARCHAR(15) NOT NULL, \
-                 latitude DECIMAL NOT NULL, \
-                 longitude DECIMAL NOT NULL, \
                  direction VARCHAR(2) NOT NULL, \
                  station VARCHAR(50) NOT NULL, \
                  destination VARCHAR(255) NOT NULL, \
                  next_arrival DATETIME NOT NULL, \
+                 waiting_seconds INTEGER NOT NULL, \
                  timestamp DATETIME NOT NULL) \
                 ")
 
