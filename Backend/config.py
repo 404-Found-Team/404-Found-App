@@ -14,6 +14,7 @@ def get_env_var(name: str):
 
 class Config:
     MARTA_API_KEY = get_env_var("MARTA_API_KEY")
+    HERE_API_KEY = get_env_var("HERE_API_KEY")
     DEBUG = get_env_var("DEBUG")
     GOOGLE_CLIENT_ID = get_env_var("GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET = get_env_var("GOOGLE_CLIENT_SECRET")

@@ -29,7 +29,6 @@ def parse_dynamic_content(url: str) -> BeautifulSoup:
     iframes = driver.find_elements("tag name", "iframe")
     if len(iframes) >= 2:
         target_iframe = iframes[1]  # Second iframe
-        print(f"Switching to second iframe: {target_iframe}")
         driver.switch_to.frame(target_iframe)
         # Wait for at least one card to appear
         WebDriverWait(driver, 10).until(
