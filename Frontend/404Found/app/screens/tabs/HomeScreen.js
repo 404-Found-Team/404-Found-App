@@ -73,6 +73,8 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef(null);
   const debounceTimer = useRef(null);
+  // Mirrors userLocation for use in the polling interval closure (avoids stale closure).
+  const userLocationRef = useRef(null);
 
   const [userLocation, setUserLocation] = useState(null);
   const [locationLoading, setLocationLoading] = useState(true);
@@ -123,6 +125,11 @@ export default function HomeScreen() {
     })();
   }, []);
 
+  // Keep ref in sync so the polling interval closure never reads a stale location.
+  useEffect(() => {
+    userLocationRef.current = userLocation;
+  }, [userLocation]);
+
   // ── Fetch alerts & incidents whenever screen is focused ────────────────────
   const loadMapData = useCallback(async () => {
     setDataLoading(true);
@@ -145,6 +152,23 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => { loadMapData(); }, [loadMapData]),
   );
+
+  // ── Background alert polling ───────────────────────────────────────────────
+  // Refreshes only the alert markers every 30 s so community reports from
+  // AlertsScreen or other users appear on the map without requiring a tab
+  // switch.  Uses userLocationRef to avoid a stale closure.
+  useEffect(() => {
+    const poll = () => {
+      const loc = userLocationRef.current;
+      const lat = loc?.latitude ?? GSU_REGION.latitude;
+      const lng = loc?.longitude ?? GSU_REGION.longitude;
+      fetchAlerts(lat, lng)
+        .then(data => setAlerts(data))
+        .catch(() => {});
+    };
+    const interval = setInterval(poll, 30_000);
+    return () => clearInterval(interval);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Go Now route fetching ─────────────────────────────────────────────────
   const fetchGoNowRoutes = useCallback(async () => {

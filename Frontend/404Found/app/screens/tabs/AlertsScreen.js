@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { Colors, Spacing, BorderRadius } from '../../constants/theme';
+import { suggestPlaces } from '../../services/routeService';
 import {
   fetchAlerts,
   submitAlert,
@@ -78,6 +79,11 @@ function SubmitModal({ visible, onClose, onSubmit, userLocation }) {
   const [alertType, setAlertType] = useState('Traffic');
   const [submitting, setSubmitting] = useState(false);
 
+  // Location autocomplete state
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [showLocationSuggs, setShowLocationSuggs] = useState(false);
+  const locationDebounce = useRef(null);
+
   function reset() {
     setAlertKind('icon');
     setSelectedSubtype(null);
@@ -85,24 +91,53 @@ function SubmitModal({ visible, onClose, onSubmit, userLocation }) {
     setDescription('');
     setLocation('');
     setAlertType('Traffic');
+    setLocationSuggestions([]);
+    setShowLocationSuggs(false);
+  }
+
+  // Debounced location search — calls the same autosuggest backend used by HomeScreen
+  function handleLocationChange(text) {
+    setLocation(text);
+    clearTimeout(locationDebounce.current);
+    if (text.trim().length < 2) {
+      setLocationSuggestions([]);
+      setShowLocationSuggs(false);
+      return;
+    }
+    locationDebounce.current = setTimeout(async () => {
+      try {
+        const results = await suggestPlaces(
+          text.trim(),
+          userLocation?.latitude ?? null,
+          userLocation?.longitude ?? null,
+        );
+        setLocationSuggestions(results);
+        setShowLocationSuggs(results.length > 0);
+      } catch { /* silent — suggestion list stays empty */ }
+    }, 400);
   }
 
   async function handleSubmit() {
-    if (!description.trim()) {
-      Alert.alert('Description required', 'Please describe the alert.');
-      return;
-    }
+    // For icon alerts description is optional — the subtype label is used as
+    // the default so the backend always receives a non-empty string.
     if (alertKind === 'icon' && !selectedSubtype) {
       Alert.alert('Select a type', 'Please pick an alert icon.');
+      return;
+    }
+    if (alertKind === 'comment' && !description.trim()) {
+      Alert.alert('Description required', 'Please describe the situation.');
       return;
     }
 
     setSubmitting(true);
     try {
+      // Auto-fill description from the subtype label when the user leaves it blank.
+      const subtypeLabel =
+        ICON_ALERT_TYPES.find(t => t.subtype === selectedSubtype)?.label ?? 'Alert';
       const payload = {
         type: alertType,
         subtype: alertKind === 'icon' ? selectedSubtype : null,
-        description: description.trim(),
+        description: description.trim() || (alertKind === 'icon' ? subtypeLabel : ''),
         location: location.trim() || null,
         lat: userLocation?.latitude ?? null,
         lng: userLocation?.longitude ?? null,
@@ -212,15 +247,17 @@ function SubmitModal({ visible, onClose, onSubmit, userLocation }) {
             </>
           )}
 
-          {/* Description */}
-          <Text style={modalStyles.sectionLabel}>Description</Text>
+          {/* Description — optional for icon alerts, required for comments */}
+          <Text style={modalStyles.sectionLabel}>
+            {alertKind === 'icon' ? 'Description (optional)' : 'Description'}
+          </Text>
           <TextInput
             style={modalStyles.textInput}
             value={description}
             onChangeText={setDescription}
             placeholder={
               alertKind === 'icon'
-                ? 'Briefly describe the situation…'
+                ? 'Add details (optional) — leave blank to use the alert type as the description'
                 : 'What do other drivers need to know?'
             }
             placeholderTextColor={Colors.textLight}
@@ -229,15 +266,42 @@ function SubmitModal({ visible, onClose, onSubmit, userLocation }) {
           />
           <Text style={modalStyles.charCount}>{description.length}/280</Text>
 
-          {/* Location (optional override) */}
+          {/* Location — defaults to GPS; typing triggers autocomplete suggestions */}
           <Text style={modalStyles.sectionLabel}>Location (optional)</Text>
           <TextInput
             style={[modalStyles.textInput, modalStyles.textInputSingle]}
             value={location}
-            onChangeText={setLocation}
+            onChangeText={handleLocationChange}
+            onBlur={() => setTimeout(() => setShowLocationSuggs(false), 150)}
             placeholder={userLocation ? 'Using your GPS location…' : 'e.g. I-85 N near Exit 91'}
             placeholderTextColor={Colors.textLight}
           />
+          {/* Autocomplete dropdown */}
+          {showLocationSuggs && locationSuggestions.length > 0 && (
+            <View style={modalStyles.suggList}>
+              {locationSuggestions.map((s, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={[
+                    modalStyles.suggItem,
+                    i === locationSuggestions.length - 1 && { borderBottomWidth: 0 },
+                  ]}
+                  onPress={() => {
+                    setLocation(s.title);
+                    setShowLocationSuggs(false);
+                  }}
+                >
+                  <MaterialCommunityIcons name="map-marker-outline" size={14} color={Colors.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={modalStyles.suggTitle} numberOfLines={1}>{s.title}</Text>
+                    {s.address ? (
+                      <Text style={modalStyles.suggAddr} numberOfLines={1}>{s.address}</Text>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Submit */}
           <TouchableOpacity
@@ -258,7 +322,7 @@ function SubmitModal({ visible, onClose, onSubmit, userLocation }) {
 
 // ── Alert Card ────────────────────────────────────────────────────────────────
 
-function AlertCard({ alert, onUpvote, onDownvote }) {
+function AlertCard({ alert, onUpvote, onDownvote, hasUpvoted, hasDownvoted }) {
   const [expanded, setExpanded] = useState(false);
   const bgColor = alertCardColor(alert.type);
   const icon = cardIcon(alert);
@@ -313,13 +377,33 @@ function AlertCard({ alert, onUpvote, onDownvote }) {
           <Text style={styles.timeText}>
             {new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Text>
-          <TouchableOpacity style={styles.voteBtn} onPress={() => onUpvote(alert.alert_id)}>
-            <MaterialCommunityIcons name="thumb-up-outline" size={16} color={Colors.textSecondary} />
-            <Text style={styles.voteBtnText}>{alert.upvotes}</Text>
+          <TouchableOpacity
+            style={styles.voteBtn}
+            onPress={() => onUpvote(alert.alert_id)}
+            disabled={hasUpvoted}
+          >
+            <MaterialCommunityIcons
+              name={hasUpvoted ? 'thumb-up' : 'thumb-up-outline'}
+              size={16}
+              color={hasUpvoted ? Colors.primary : Colors.textSecondary}
+            />
+            <Text style={[styles.voteBtnText, hasUpvoted && { color: Colors.primary }]}>
+              {alert.upvotes}
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.voteBtn} onPress={() => onDownvote(alert.alert_id)}>
-            <MaterialCommunityIcons name="thumb-down-outline" size={16} color={Colors.textSecondary} />
-            <Text style={styles.voteBtnText}>{alert.downvotes}</Text>
+          <TouchableOpacity
+            style={styles.voteBtn}
+            onPress={() => onDownvote(alert.alert_id)}
+            disabled={hasDownvoted}
+          >
+            <MaterialCommunityIcons
+              name={hasDownvoted ? 'thumb-down' : 'thumb-down-outline'}
+              size={16}
+              color={hasDownvoted ? '#E74C3C' : Colors.textSecondary}
+            />
+            <Text style={[styles.voteBtnText, hasDownvoted && { color: '#E74C3C' }]}>
+              {alert.downvotes}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -338,6 +422,11 @@ export default function AlertsScreen() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
+
+  // Track which alerts this session has already voted on so each user can
+  // only cast one upvote and one downvote per alert per session.
+  const [upvotedIds, setUpvotedIds] = useState(new Set());
+  const [downvotedIds, setDownvotedIds] = useState(new Set());
 
   // ── Location ───────────────────────────────────────────────────────────────
   useFocusEffect(
@@ -380,16 +469,20 @@ export default function AlertsScreen() {
 
   // ── Voting ─────────────────────────────────────────────────────────────────
   async function handleUpvote(alertId) {
+    if (upvotedIds.has(alertId)) return; // already voted this session
     try {
       const updated = await upvoteAlert(alertId);
       setAlerts(prev => prev.map(a => a.alert_id === alertId ? { ...a, upvotes: updated.upvotes } : a));
+      setUpvotedIds(prev => new Set([...prev, alertId]));
     } catch { /* silent */ }
   }
 
   async function handleDownvote(alertId) {
+    if (downvotedIds.has(alertId)) return; // already voted this session
     try {
       const updated = await downvoteAlert(alertId);
       setAlerts(prev => prev.map(a => a.alert_id === alertId ? { ...a, downvotes: updated.downvotes } : a));
+      setDownvotedIds(prev => new Set([...prev, alertId]));
     } catch { /* silent */ }
   }
 
@@ -516,6 +609,8 @@ export default function AlertsScreen() {
                   alert={alert}
                   onUpvote={handleUpvote}
                   onDownvote={handleDownvote}
+                  hasUpvoted={upvotedIds.has(alert.alert_id)}
+                  hasDownvoted={downvotedIds.has(alert.alert_id)}
                 />
               ))
             )}
@@ -652,6 +747,28 @@ const modalStyles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   submitBtnText: { fontSize: 16, fontWeight: '700', color: Colors.white },
+
+  // ── Location autocomplete dropdown ──────────────────────────────────────────
+  suggList: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginTop: -Spacing.sm,
+    marginBottom: Spacing.sm,
+    overflow: 'hidden',
+  },
+  suggItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  suggTitle: { fontSize: 13, color: Colors.textPrimary, fontWeight: '500' },
+  suggAddr: { fontSize: 11, color: Colors.textSecondary, marginTop: 1 },
 });
 
 const styles = StyleSheet.create({
@@ -734,13 +851,13 @@ const styles = StyleSheet.create({
   alertHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
-    gap: Spacing.sm,
+    marginBottom: 2,
+    gap: Spacing.xs,
   },
   alertIconBadge: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
