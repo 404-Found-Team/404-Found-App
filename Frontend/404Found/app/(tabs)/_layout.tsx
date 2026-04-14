@@ -36,6 +36,8 @@ export default function TabLayout() {
         },
       }}
     >
+      {/* Hide the index redirect from the tab bar */}
+      <Tabs.Screen name="index" options={{ href: null }} />
       <Tabs.Screen
         name="home"
         options={{

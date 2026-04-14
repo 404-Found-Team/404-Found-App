@@ -11,6 +11,8 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
+        {/* Entry point — sign-in */}
+        <Stack.Screen name="index" />
         {/* Auth screens - no tabs */}
         <Stack.Screen name="home" />
         <Stack.Screen name="sign-up" />
@@ -20,6 +22,8 @@ export default function RootLayout() {
         {/* Modal screens - accessible from tabs */}
         <Stack.Screen name="settings" options={{ presentation: 'modal' }} />
         <Stack.Screen name="my-account" options={{ presentation: 'modal' }} />
+        {/* Full-screen navigation overlay */}
+        <Stack.Screen name="navigation" options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
       </Stack>
     </GestureHandlerRootView>
   );

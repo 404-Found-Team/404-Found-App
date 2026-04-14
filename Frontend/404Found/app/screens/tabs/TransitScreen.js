@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
@@ -13,10 +13,11 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
 import axios from 'axios';
 import { Colors, Spacing, BorderRadius } from '../../constants/theme';
-
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+import { API_BASE_URL } from '../../constants/api';
+import { findNearestStation } from '../../services/routeService';
 
 const LINE_COLORS = {
   RED: '#E53935',
@@ -90,6 +91,23 @@ export default function TransitScreen() {
   const [lastUpdated, setLastUpdated] = useState(null);
   // null means all lines expanded (default); switches to a Set once user collapses one
   const [expandedLines, setExpandedLines] = useState(null);
+
+  // ── Nearest station ─────────────────────────────────────────────────────────
+  const [nearestStation, setNearestStation] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      try {
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const station = findNearestStation(loc.coords.latitude, loc.coords.longitude);
+        setNearestStation(station);
+      } catch { /* silent */ }
+    })();
+  }, []);
 
   const fetchTrainData = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
@@ -204,6 +222,35 @@ export default function TransitScreen() {
             {updatedStr ? `\nLast updated ${updatedStr}` : ''}
           </Text>
         </View>
+
+        {/* ── Nearest station card ──────────────────────────────────────── */}
+        {nearestStation && (
+          <View style={styles.nearestCard}>
+            <View style={styles.nearestHeader}>
+              <MaterialCommunityIcons name="map-marker-radius" size={18} color={Colors.primary} />
+              <Text style={styles.nearestLabel}>Nearest Station</Text>
+              <Text style={styles.nearestDist}>{nearestStation.distanceMiles} mi away</Text>
+            </View>
+            <Text style={styles.nearestName}>{nearestStation.name}</Text>
+            <Text style={styles.nearestLine}>{nearestStation.line} Line</Text>
+            <TouchableOpacity
+              style={styles.nearestDirectionsBtn}
+              onPress={() =>
+                router.push({
+                  pathname: '/navigation',
+                  params: {
+                    destLat: String(nearestStation.lat),
+                    destLng: String(nearestStation.lng),
+                    destName: `${nearestStation.name} MARTA Station`,
+                  },
+                })
+              }
+            >
+              <MaterialCommunityIcons name="walk" size={16} color={Colors.white} />
+              <Text style={styles.nearestDirectionsTxt}>Walk Directions</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {loading ? (
           <View style={styles.centered}>
@@ -480,5 +527,63 @@ const styles = StyleSheet.create({
   },
   bottomPad: {
     height: Spacing.xxl,
+  },
+  // Nearest station card
+  nearestCard: {
+    margin: Spacing.md,
+    marginBottom: 0,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  nearestHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  nearestLabel: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  nearestDist: {
+    fontSize: 12,
+    color: Colors.textLight,
+  },
+  nearestName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 2,
+  },
+  nearestLine: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+  },
+  nearestDirectionsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.sm,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  nearestDirectionsTxt: {
+    color: Colors.white,
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

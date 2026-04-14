@@ -11,14 +11,25 @@ import {
   RefreshControl,
   Animated,
   Easing,
+  Modal,
+  Pressable,
+  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../../constants/theme';
 import axios from 'axios';
+import { API_BASE_URL } from '../../constants/api';
+import { getRoutes, geocodePlace } from '../../services/routeService';
+import { setPendingRoute } from '../../services/routeStore';
+import * as Location from 'expo-location';
 
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const PARKING_MODES = [
+  { id: 'car',        label: 'Drive', icon: 'car' },
+  { id: 'pedestrian', label: 'Walk',  icon: 'walk' },
+];
+
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes — matches backend TTL
 
 function getAvailabilityColor(available, total) {
@@ -46,7 +57,7 @@ function AvailabilityBar({ available, total, color }) {
   );
 }
 
-function ParkingCard({ location }) {
+function ParkingCard({ location, onGetDirections }) {
   const color = getAvailabilityColor(location.available, location.total);
   const label = getAvailabilityLabel(location.available, location.total);
   return (
@@ -77,7 +88,7 @@ function ParkingCard({ location }) {
         </Text>
       </View>
 
-      <TouchableOpacity style={styles.directionsButton}>
+      <TouchableOpacity style={styles.directionsButton} onPress={() => onGetDirections(location)}>
         <MaterialCommunityIcons name="directions" size={16} color={Colors.white} />
         <Text style={styles.directionsButtonText}>Get Directions</Text>
       </TouchableOpacity>
@@ -118,6 +129,74 @@ export default function ParkingScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const [userLocation, setUserLocation] = useState(null);
+
+  // ── Directions modal state ─────────────────────────────────────────────────
+  const [showDirections, setShowDirections] = useState(false);
+  const [dirLot, setDirLot] = useState(null);       // the parking lot object
+  const [dirMode, setDirMode] = useState('car');
+  const [dirRoutes, setDirRoutes] = useState([]);
+  const [dirLoading, setDirLoading] = useState(false);
+  const [dirSelected, setDirSelected] = useState(null);
+  const dirDestRef = useRef(null); // cached { lat, lng } for the current lot
+
+  // Get user location once on mount for route origins
+  React.useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      try {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setUserLocation(loc.coords);
+      } catch { /* silent */ }
+    })();
+  }, []);
+
+  async function openDirections(lot) {
+    setDirLot(lot);
+    setDirMode('car');
+    setDirRoutes([]);
+    setDirSelected(null);
+    dirDestRef.current = null;
+    setShowDirections(true);
+    setDirLoading(true);
+    try {
+      // Geocode the parking lot address to get coordinates
+      const geo = await geocodePlace(`${lot.address}, Atlanta, GA`);
+      if (!geo?.lat || !geo?.lng) throw new Error('Could not locate parking lot');
+      dirDestRef.current = { lat: geo.lat, lng: geo.lng };
+      await fetchDirRoutes('car', dirDestRef.current);
+    } catch {
+      setDirLoading(false);
+    }
+  }
+
+  async function fetchDirRoutes(mode, dest) {
+    if (!dest) return;
+    setDirLoading(true);
+    setDirRoutes([]);
+    setDirSelected(null);
+    try {
+      const origin = userLocation
+        ? [userLocation.latitude, userLocation.longitude]
+        : [33.7534, -84.3863]; // GSU campus fallback
+      const routes = await getRoutes(origin, [dest.lat, dest.lng], mode);
+      setDirRoutes(routes);
+      if (routes.length > 0) setDirSelected(routes[0]);
+    } catch { /* silent */ }
+    finally { setDirLoading(false); }
+  }
+
+  async function onDirModeChange(mode) {
+    setDirMode(mode);
+    if (dirDestRef.current) await fetchDirRoutes(mode, dirDestRef.current);
+  }
+
+  function fmtEta(min) {
+    if (!min && min !== 0) return '--';
+    if (min >= 60) return `${Math.floor(min / 60)}h ${min % 60}m`;
+    return `${min} min`;
+  }
 
   const fetchParkingData = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
@@ -161,6 +240,126 @@ export default function ParkingScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
+
+      {/* ── Directions Modal ────────────────────────────────────────────────── */}
+      <Modal
+        visible={showDirections}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowDirections(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowDirections(false)}>
+          <Pressable style={styles.modalSheet} onPress={e => e.stopPropagation()}>
+            <View style={styles.modalHandle} />
+
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <MaterialCommunityIcons name="parking" size={20} color={Colors.primary} />
+              <Text style={styles.modalTitle} numberOfLines={1}>{dirLot?.name ?? 'Parking Lot'}</Text>
+              <TouchableOpacity onPress={() => setShowDirections(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <MaterialCommunityIcons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            {dirLot?.address ? (
+              <Text style={styles.modalAddress} numberOfLines={1}>{dirLot.address}</Text>
+            ) : null}
+
+            {/* Mode tabs */}
+            <View style={styles.modalModeRow}>
+              {PARKING_MODES.map(m => (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[styles.modalModeChip, dirMode === m.id && styles.modalModeChipActive]}
+                  onPress={() => onDirModeChange(m.id)}
+                >
+                  <MaterialCommunityIcons
+                    name={m.icon}
+                    size={16}
+                    color={dirMode === m.id ? Colors.primaryDark : Colors.textSecondary}
+                  />
+                  <Text style={[styles.modalModeLabel, dirMode === m.id && styles.modalModeLabelActive]}>
+                    {m.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Route results */}
+            <ScrollView style={styles.modalRouteScroll} nestedScrollEnabled>
+              {dirLoading ? (
+                <View style={styles.modalCentered}>
+                  <ActivityIndicator size="large" color={Colors.primary} />
+                  <Text style={styles.modalStatusText}>Finding routes…</Text>
+                </View>
+              ) : dirRoutes.length === 0 ? (
+                <View style={styles.modalCentered}>
+                  <MaterialCommunityIcons name="routes" size={40} color={Colors.textLight} />
+                  <Text style={styles.modalStatusText}>No routes found</Text>
+                </View>
+              ) : (
+                dirRoutes.map((route, i) => {
+                  const sel = dirSelected === route;
+                  const tl = route.traffic_level;
+                  const tlColor = tl === 'high' ? '#E53935' : tl === 'medium' ? '#FFC107' : '#43A047';
+                  return (
+                    <TouchableOpacity
+                      key={i}
+                      style={[styles.routeCard, sel && styles.routeCardSelected]}
+                      onPress={() => setDirSelected(route)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.routeCardRow}>
+                        <View style={[styles.routeModeIcon, sel && { backgroundColor: Colors.primary }]}>
+                          <MaterialCommunityIcons
+                            name={PARKING_MODES.find(m => m.id === dirMode)?.icon ?? 'car'}
+                            size={20}
+                            color={sel ? Colors.white : Colors.primary}
+                          />
+                        </View>
+                        <View style={styles.routeCardInfo}>
+                          <Text style={styles.routeEta}>{fmtEta(route.eta_minutes)}</Text>
+                          <Text style={styles.routeDist}>{route.distance} mi · {route.label}</Text>
+                        </View>
+                        <View style={[styles.trafficPill, { backgroundColor: tlColor + '22' }]}>
+                          <View style={[styles.trafficDot, { backgroundColor: tlColor }]} />
+                          <Text style={[styles.trafficLabel, { color: tlColor }]}>
+                            {tl === 'high' ? 'Heavy' : tl === 'medium' ? 'Moderate' : 'Light'}
+                          </Text>
+                        </View>
+                        {sel && <MaterialCommunityIcons name="check-circle" size={20} color={Colors.primary} />}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+
+            {/* Action button */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.startNavBtn, !dirSelected && styles.startNavBtnDisabled]}
+                disabled={!dirSelected}
+                onPress={() => {
+                  if (!dirSelected || !dirDestRef.current) return;
+                  setShowDirections(false);
+                  setPendingRoute(dirSelected);
+                  router.push({
+                    pathname: '/navigation',
+                    params: {
+                      destLat: String(dirDestRef.current.lat),
+                      destLng: String(dirDestRef.current.lng),
+                      destName: dirLot?.name ?? 'Parking Lot',
+                    },
+                  });
+                }}
+              >
+                <MaterialCommunityIcons name="navigation" size={18} color={Colors.white} />
+                <Text style={styles.startNavText}>Start Navigation</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <View style={styles.header}>
         <View style={styles.logoButton}>
@@ -226,7 +425,11 @@ export default function ParkingScreen() {
           ) : (
             <View style={styles.locationsContainer}>
               {parkingLocations.map(location => (
-                <ParkingCard key={location.id} location={location} />
+                <ParkingCard
+                  key={location.id}
+                  location={location}
+                  onGetDirections={openDirections}
+                />
               ))}
             </View>
           )}
@@ -402,4 +605,100 @@ const styles = StyleSheet.create({
   directionsButtonText: { color: Colors.white, fontSize: 15, fontWeight: '600' },
 
   bottomPad: { height: Spacing.xxl },
+
+  // ── Directions Modal ──────────────────────────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    paddingTop: Spacing.sm,
+    paddingBottom: Platform.OS === 'ios' ? 34 : Spacing.lg,
+    maxHeight: '80%',
+  },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: Colors.border,
+    alignSelf: 'center',
+    marginBottom: Spacing.md,
+  },
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  modalTitle: { flex: 1, fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
+  modalAddress: {
+    fontSize: 12, color: Colors.textSecondary,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  modalModeRow: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  modalModeChip: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.round,
+    backgroundColor: Colors.backgroundGray,
+    borderWidth: 1, borderColor: Colors.border,
+    gap: 6,
+  },
+  modalModeChipActive: {
+    backgroundColor: Colors.primaryLight,
+    borderColor: Colors.primary,
+  },
+  modalModeLabel: { fontSize: 13, color: Colors.textSecondary, fontWeight: '500' },
+  modalModeLabelActive: { color: Colors.primaryDark, fontWeight: '700' },
+  modalRouteScroll: { maxHeight: 220, paddingHorizontal: Spacing.md },
+  modalCentered: {
+    alignItems: 'center', paddingVertical: Spacing.xl, gap: Spacing.sm,
+  },
+  modalStatusText: { fontSize: 14, color: Colors.textSecondary },
+  routeCard: {
+    backgroundColor: Colors.backgroundGray,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1.5, borderColor: Colors.border,
+  },
+  routeCardSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
+  routeCardRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  routeModeIcon: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.primaryLight,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  routeCardInfo: { flex: 1, gap: 2 },
+  routeEta: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  routeDist: { fontSize: 12, color: Colors.textSecondary },
+  trafficPill: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: BorderRadius.round, gap: 4,
+  },
+  trafficDot: { width: 6, height: 6, borderRadius: 3 },
+  trafficLabel: { fontSize: 11, fontWeight: '600' },
+  modalActions: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+  },
+  startNavBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  startNavBtnDisabled: { opacity: 0.5 },
+  startNavText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
 });

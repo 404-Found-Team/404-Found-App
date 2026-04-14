@@ -14,12 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
-import { Colors, Spacing, BorderRadius } from '../constants/theme';
-import authService from '../services/authService';
-
-// DEV-ONLY: This file lives inside (tabs) so the sign-in screen is directly
-// reachable at /(tabs) during testing, avoiding repeated logins.
-// The real app entry point is app/index.tsx → app/home.tsx.
+import { Colors, Spacing, BorderRadius } from './constants/theme';
+import authService from './services/authService';
 
 export default function SignInScreen() {
   const router = useRouter();

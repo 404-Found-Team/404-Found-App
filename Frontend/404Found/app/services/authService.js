@@ -1,6 +1,5 @@
 import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8000/api/v1'; // Update with your actual backend URL
+import { API_BASE_URL } from '../constants/api';
 
 const authService = {
   signup: async (fullName, email, password, confirmPassword) => {

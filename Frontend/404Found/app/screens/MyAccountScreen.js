@@ -12,9 +12,9 @@ import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
 import axios from 'axios';
 import { getAccessToken } from '../services/authService';
+import { API_BASE_URL } from '../constants/api';
 
 export default function MyAccountScreen() {
-  const API_BASE_URL = 'http://localhost:8000/api/v1'; // Update with your actual backend URL
   const router = useRouter();
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -116,7 +116,7 @@ export default function MyAccountScreen() {
       <View style={styles.header}>
         <View style={styles.logoButton}>
           <TouchableOpacity
-            onPress={() => router.push('../(tabs)/home')}
+            onPress={() => router.push('/(tabs)/home')}
           >
             <Icon name="map-marker" size={28} color={Colors.primaryDark} />
           </TouchableOpacity>
@@ -128,7 +128,7 @@ export default function MyAccountScreen() {
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => router.push('../screens/SettingsScreen')}
+            onPress={() => router.push('/settings')}
           >
             <Icon name="cog" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>

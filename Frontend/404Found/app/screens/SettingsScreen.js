@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,32 @@ import {
   Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import axios from 'axios';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
-import authService from '../services/authService';
+import authService, { getAccessToken } from '../services/authService';
+import { API_BASE_URL } from '../constants/api';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const [darkMode, setDarkMode] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const token = getAccessToken();
+        if (!token) return;
+        const response = await axios.get(`${API_BASE_URL}/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setUser(response.data);
+      } catch {
+        // silently fail — user header is optional
+      }
+    };
+    fetchUser();
+  }, []);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -65,7 +84,7 @@ export default function SettingsScreen() {
       <View style={styles.header}>
         <View style={styles.logoButton}>
           <TouchableOpacity
-            onPress={() => router.push('../(tabs)/home')}
+            onPress={() => router.push('/(tabs)/home')}
           >
             <Icon name="map-marker" size={28} color={Colors.primaryDark} />
           </TouchableOpacity>
@@ -85,7 +104,7 @@ export default function SettingsScreen() {
 
           <TouchableOpacity 
             style={styles.iconButton}
-            onPress={() => router.push('../screens/MyAccountScreen')}
+            onPress={() => router.push('/my-account')}
           >
             <Icon name="account" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
@@ -98,6 +117,20 @@ export default function SettingsScreen() {
           <Text style={styles.title}>Settings</Text>
           <Text style={styles.subtitle}>Manage your app preferences</Text>
         </View>
+
+        {/* User Info Card */}
+        {user && (
+          <TouchableOpacity style={styles.userCard} onPress={() => router.push('/my-account')}>
+            <View style={styles.userAvatar}>
+              <Icon name="account" size={32} color={Colors.white} />
+            </View>
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>{user.first_name} {user.last_name}</Text>
+              <Text style={styles.userEmail}>{user.email}</Text>
+            </View>
+            <Icon name="chevron-right" size={24} color={Colors.textLight} />
+          </TouchableOpacity>
+        )}
 
         {/* Preferences Section */}
         <View style={styles.section}>
@@ -306,5 +339,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: Colors.danger,
+  },
+  userCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    marginTop: Spacing.md,
+    marginHorizontal: Spacing.md,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    gap: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  userAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 2,
+  },
+  userEmail: {
+    fontSize: 13,
+    color: Colors.textSecondary,
   },
 });
