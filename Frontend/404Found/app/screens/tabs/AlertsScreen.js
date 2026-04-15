@@ -12,6 +12,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -157,8 +160,20 @@ function SubmitModal({ visible, onClose, onSubmit, userLocation }) {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={modalStyles.overlay} onPress={onClose}>
-        <Pressable style={modalStyles.sheet} onPress={e => e.stopPropagation()}>
+      {/* Wrap in a plain View so the semi-transparent background covers the full screen */}
+      <View style={modalStyles.overlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          {/* Flex backdrop — tapping dismisses the modal and keyboard */}
+          <Pressable style={{ flex: 1 }} onPress={() => { Keyboard.dismiss(); onClose(); }} />
+          <Pressable style={modalStyles.sheet} onPress={e => e.stopPropagation()}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              bounces={false}
+            >
           <View style={modalStyles.handle} />
           <Text style={modalStyles.title}>Report an Alert</Text>
 
@@ -262,6 +277,9 @@ function SubmitModal({ visible, onClose, onSubmit, userLocation }) {
             }
             placeholderTextColor={Colors.textLight}
             multiline
+            submitBehavior="blurAndSubmit"
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
             maxLength={280}
           />
           <Text style={modalStyles.charCount}>{description.length}/280</Text>
@@ -273,8 +291,10 @@ function SubmitModal({ visible, onClose, onSubmit, userLocation }) {
             value={location}
             onChangeText={handleLocationChange}
             onBlur={() => setTimeout(() => setShowLocationSuggs(false), 150)}
+            onSubmitEditing={() => Keyboard.dismiss()}
             placeholder={userLocation ? 'Using your GPS location…' : 'e.g. I-85 N near Exit 91'}
             placeholderTextColor={Colors.textLight}
+            returnKeyType="done"
           />
           {/* Autocomplete dropdown */}
           {showLocationSuggs && locationSuggestions.length > 0 && (
@@ -314,8 +334,10 @@ function SubmitModal({ visible, onClose, onSubmit, userLocation }) {
               : <Text style={modalStyles.submitBtnText}>Submit Alert</Text>
             }
           </TouchableOpacity>
-        </Pressable>
-      </Pressable>
+            </ScrollView>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -635,7 +657,6 @@ const modalStyles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
   },
   sheet: {
     backgroundColor: Colors.white,

@@ -12,6 +12,7 @@ import {
   Alert as RNAlert,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -238,6 +239,7 @@ function NavReportSheet({ visible, onClose, onSubmit, userLocation }) {
               multiline={false}
               maxLength={140}
               returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
             />
 
             <TouchableOpacity
@@ -635,7 +637,7 @@ export default function NavigationScreen() {
               key={polylineCoords.length}
               coordinates={polylineCoords}
               strokeColor="#90A4AE"
-              strokeWidth={7}
+              strokeWidth={100}
             />
           )}
           {mapReady && polylineCoords.length > 1 && (
@@ -643,7 +645,7 @@ export default function NavigationScreen() {
               key={`blue-${polylineCoords.length}`}
               coordinates={polylineCoords.slice(Math.max(0, coordIdx))}
               strokeColor="#1A73E8"
-              strokeWidth={10}
+              strokeWidth={110}
             />
           )}
           {mapReady && hasValidDest && (
@@ -689,7 +691,7 @@ export default function NavigationScreen() {
                 zIndex={5}
               >
                 <View style={[styles.alertMapMarker, { borderColor: color + 'AA' }]}>
-                  <MaterialCommunityIcons name={icon} size={13} color={color} />
+                  <MaterialCommunityIcons name={icon} size={18} color={color} />
                 </View>
               </Marker>
             );
@@ -1171,9 +1173,9 @@ const styles = StyleSheet.create({
   // ── Alert map markers ─────────────────────────────────────────────────────
   // Intentionally small (26 px) so they don't obscure the road view while driving.
   alertMapMarker: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 38,   //38
+    height: 38,  //38
+    borderRadius: 19,
     backgroundColor: 'rgba(255,255,255,0.95)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1203,14 +1205,14 @@ const styles = StyleSheet.create({
   },
 
   // ── Dev debug overlay ─────────────────────────────────────────────────────
-  debugOverlay: {
-    position: 'absolute',
-    top: 160,
-    left: 10,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    padding: 6,
-    borderRadius: 4,
-    zIndex: 999,
-  },
-  debugText: { color: '#0FF', fontSize: 10 },
+  // debugOverlay: {
+  //   position: 'absolute',
+  //   top: 160,
+  //   left: 10,
+  //   backgroundColor: 'rgba(0,0,0,0.75)',
+  //   padding: 6,
+  //   borderRadius: 4,
+  //   zIndex: 999,
+  // },
+  // debugText: { color: '#0FF', fontSize: 10 },
 });

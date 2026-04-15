@@ -28,9 +28,16 @@ import {
   fetchTrafficIncidents,
   subtypeIcon,
   subtypeColor,
+  submitAlert,
+  ICON_ALERT_TYPES,
+  URGENCY_LEVELS,
 } from '../../services/alertService';
 import { suggestPlaces, getRoutes, geocodePlace } from '../../services/routeService';
 import { setPendingRoute } from '../../services/routeStore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const RECENT_PLACES_KEY = '@404found:recent_places';
+const MAX_RECENT = 5;
 
 // GSU campus as the default centre when location is unavailable
 const GSU_REGION = {
@@ -68,6 +75,183 @@ function bubbleBorderColor(urgency) {
   }
 }
 
+// ── NavReportSheet ─────────────────────────────────────────────────────────────
+// The same compact bottom-sheet used in NavigationScreen, reused here so the
+// HomeScreen map also has a quick-report overlay without navigating away.
+
+function NavReportSheet({ visible, onClose, onSubmit, userLocation }) {
+  const [alertKind, setAlertKind] = useState('icon');
+  const [selectedSubtype, setSelectedSubtype] = useState(null);
+  const [selectedUrgency, setSelectedUrgency] = useState(null);
+  const [description, setDescription] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  function reset() {
+    setAlertKind('icon');
+    setSelectedSubtype(null);
+    setSelectedUrgency(null);
+    setDescription('');
+  }
+
+  async function handleSubmit() {
+    if (alertKind === 'icon' && !selectedSubtype) {
+      Alert.alert('Select a type', 'Please pick an alert type.');
+      return;
+    }
+    if (alertKind === 'comment' && !description.trim()) {
+      Alert.alert('Description required', 'Please describe the situation.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const subtypeLabel =
+        ICON_ALERT_TYPES.find(t => t.subtype === selectedSubtype)?.label ?? 'Alert';
+      const payload = {
+        type: 'Traffic',
+        subtype: alertKind === 'icon' ? selectedSubtype : null,
+        description: description.trim() || subtypeLabel,
+        location: null,
+        lat: userLocation?.latitude ?? null,
+        lng: userLocation?.longitude ?? null,
+        is_comment: alertKind === 'comment',
+        urgency: alertKind === 'comment' ? selectedUrgency : null,
+      };
+      await onSubmit(payload);
+      reset();
+      onClose();
+    } catch (err) {
+      const msg = err?.response?.data?.detail ?? 'Failed to submit. Please try again.';
+      Alert.alert('Error', msg);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={sheetStyles.overlay} onPress={onClose}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={sheetStyles.kavWrapper}
+        >
+          <Pressable style={sheetStyles.sheet} onPress={e => e.stopPropagation()}>
+            <View style={sheetStyles.handle} />
+            <View style={sheetStyles.headerRow}>
+              <Text style={sheetStyles.title}>Report Alert</Text>
+              <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <MaterialCommunityIcons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Kind toggle */}
+            <View style={sheetStyles.kindToggle}>
+              <TouchableOpacity
+                style={[sheetStyles.kindBtn, alertKind === 'icon' && sheetStyles.kindBtnActive]}
+                onPress={() => setAlertKind('icon')}
+              >
+                <MaterialCommunityIcons
+                  name="map-marker-alert"
+                  size={16}
+                  color={alertKind === 'icon' ? Colors.white : Colors.textSecondary}
+                />
+                <Text style={[sheetStyles.kindBtnText, alertKind === 'icon' && sheetStyles.kindBtnTextActive]}>
+                  Icon Alert
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[sheetStyles.kindBtn, alertKind === 'comment' && sheetStyles.kindBtnActive]}
+                onPress={() => setAlertKind('comment')}
+              >
+                <MaterialCommunityIcons
+                  name="comment-text"
+                  size={16}
+                  color={alertKind === 'comment' ? Colors.white : Colors.textSecondary}
+                />
+                <Text style={[sheetStyles.kindBtnText, alertKind === 'comment' && sheetStyles.kindBtnTextActive]}>
+                  Comment
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {alertKind === 'icon' ? (
+              <View style={sheetStyles.iconGrid}>
+                {ICON_ALERT_TYPES.map(t => (
+                  <TouchableOpacity
+                    key={t.subtype}
+                    style={[
+                      sheetStyles.iconCell,
+                      selectedSubtype === t.subtype && {
+                        borderColor: t.color,
+                        backgroundColor: t.color + '18',
+                      },
+                    ]}
+                    onPress={() => setSelectedSubtype(t.subtype)}
+                  >
+                    <MaterialCommunityIcons name={t.icon} size={20} color={t.color} />
+                    <Text style={sheetStyles.iconCellLabel} numberOfLines={2}>{t.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <View style={sheetStyles.urgencyRow}>
+                {URGENCY_LEVELS.map(u => (
+                  <TouchableOpacity
+                    key={String(u.value)}
+                    style={[
+                      sheetStyles.urgencyChip,
+                      { borderColor: u.color },
+                      selectedUrgency === u.value && { backgroundColor: u.color },
+                    ]}
+                    onPress={() => setSelectedUrgency(u.value)}
+                  >
+                    <Text
+                      style={[
+                        sheetStyles.urgencyChipText,
+                        { color: selectedUrgency === u.value ? Colors.white : u.color },
+                      ]}
+                    >
+                      {u.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            <TextInput
+              style={sheetStyles.textInput}
+              value={description}
+              onChangeText={setDescription}
+              placeholder={
+                alertKind === 'icon'
+                  ? 'Add details (optional)…'
+                  : 'What do drivers need to know?'
+              }
+              placeholderTextColor={Colors.textLight}
+              multiline={false}
+              maxLength={140}
+              returnKeyType="done"
+              onSubmitEditing={() => Keyboard.dismiss()}
+            />
+
+            <TouchableOpacity
+              style={[sheetStyles.submitBtn, submitting && { opacity: 0.6 }]}
+              onPress={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color={Colors.white} />
+              ) : (
+                <Text style={sheetStyles.submitBtnText}>Submit Alert</Text>
+              )}
+            </TouchableOpacity>
+          </Pressable>
+        </KeyboardAvoidingView>
+      </Pressable>
+    </Modal>
+  );
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -96,12 +280,32 @@ export default function HomeScreen() {
   const [goNowLoading, setGoNowLoading] = useState(false);
   const [goNowSelected, setGoNowSelected] = useState(null);
 
-  // Recent places – backed by real trip history in a future version
-  const [recentPlaces] = useState([
-    { id: '1', name: 'Langdale Hall',      icon: 'office-building', lat: 33.7534, lng: -84.3863 },
-    { id: '2', name: 'Downtown Station',   icon: 'train',           lat: 33.7490, lng: -84.3880 },
-    { id: '3', name: 'Park & Ride Lot B',  icon: 'parking',         lat: 33.7510, lng: -84.3920 },
-  ]);
+  // ── Report sheet state ─────────────────────────────────────────────────────
+  const [showReportSheet, setShowReportSheet] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
+
+  // Recent places – persisted across sessions with AsyncStorage
+  const [recentPlaces, setRecentPlaces] = useState([]);
+
+  // ── Recent places – load from storage on mount ────────────────────────────
+  useEffect(() => {
+    AsyncStorage.getItem(RECENT_PLACES_KEY)
+      .then(raw => { if (raw) setRecentPlaces(JSON.parse(raw)); })
+      .catch(() => {});
+  }, []);
+
+  async function saveRecentPlace(item) {
+    try {
+      const entry = { id: item.title, name: item.title, lat: item.lat, lng: item.lng };
+      const prev = await AsyncStorage.getItem(RECENT_PLACES_KEY);
+      const list = prev ? JSON.parse(prev) : [];
+      // Move to front if already present, then cap at MAX_RECENT
+      const filtered = list.filter(p => p.name !== entry.name);
+      const next = [entry, ...filtered].slice(0, MAX_RECENT);
+      await AsyncStorage.setItem(RECENT_PLACES_KEY, JSON.stringify(next));
+      setRecentPlaces(next);
+    } catch { /* silent — recents are best-effort */ }
+  }
 
   // ── Location permission & initial fetch ────────────────────────────────────
   useEffect(() => {
@@ -202,6 +406,7 @@ export default function HomeScreen() {
     setGoNowRoutes([]);
     setGoNowSelected(null);
     setShowGoNow(true);
+    saveRecentPlace(item);
   }
 
   // ── Autocomplete – debounced ────────────────────────────────────────────────
@@ -257,6 +462,16 @@ export default function HomeScreen() {
       latitudeDelta: 0.02,
       longitudeDelta: 0.02,
     }, 600);
+  }
+
+  // ── Alert submit handler ────────────────────────────────────────────────────
+  async function handleAlertSubmit(payload) {
+    const newAlert = await submitAlert(payload);
+    // Prepend so the new marker appears on the map immediately without waiting
+    // for the next 30-second polling cycle.
+    setAlerts(prev => [newAlert, ...prev]);
+    setReportSuccess(true);
+    setTimeout(() => setReportSuccess(false), 2500);
   }
 
   const mapRegion = userLocation
@@ -352,7 +567,7 @@ export default function HomeScreen() {
       style={styles.recentItem}
       onPress={() => openGoNow({ title: item.name, lat: item.lat, lng: item.lng })}
     >
-      <MaterialCommunityIcons name={item.icon} size={24} color={Colors.textSecondary} />
+      <MaterialCommunityIcons name="history" size={24} color={Colors.textSecondary} />
       <Text style={styles.recentText}>{item.name}</Text>
       <MaterialCommunityIcons name="chevron-right" size={18} color={Colors.textLight} />
     </TouchableOpacity>
@@ -565,6 +780,7 @@ export default function HomeScreen() {
             showsTraffic
             showsPointsOfInterest={false}
             loadingEnabled
+            onPress={() => Keyboard.dismiss()}
           >
             {alerts.map(renderAlertMarker)}
             {incidents.map(renderIncidentMarker)}
@@ -583,11 +799,28 @@ export default function HomeScreen() {
 
         <TouchableOpacity
           style={styles.reportButton}
-          onPress={() => router.push('/(tabs)/alerts')}
+          onPress={() => setShowReportSheet(true)}
         >
           <MaterialCommunityIcons name="alert-plus" size={22} color={Colors.white} />
         </TouchableOpacity>
+
       </View>
+
+      {/* Alert reported success toast */}
+      {reportSuccess && (
+        <View style={styles.successToast}>
+          <MaterialCommunityIcons name="check-circle-outline" size={18} color="#fff" />
+          <Text style={styles.successToastText}>Alert reported!</Text>
+        </View>
+      )}
+
+      {/* Report alert bottom sheet */}
+      <NavReportSheet
+        visible={showReportSheet}
+        onClose={() => setShowReportSheet(false)}
+        onSubmit={handleAlertSubmit}
+        userLocation={userLocation}
+      />
 
       {/* Bottom Sheet */}
       <View style={[styles.bottomSheet, { paddingBottom: Platform.OS === 'ios' ? 100 : 80 }]}>
@@ -610,13 +843,13 @@ export default function HomeScreen() {
           {suggestLoading ? (
             <ActivityIndicator size="small" color={Colors.primary} />
           ) : searchQuery.length > 0 ? (
-            <TouchableOpacity onPress={() => { setSearchQuery(''); setSuggestions([]); setShowSuggestions(false); }}>
+            <TouchableOpacity onPress={() => { Keyboard.dismiss(); setSearchQuery(''); setSuggestions([]); setShowSuggestions(false); }}>
               <MaterialCommunityIcons name="close-circle" size={18} color={Colors.textLight} />
             </TouchableOpacity>
           ) : null}
         </View>
 
-        {/* Autocomplete dropdown */}
+        {/* Autocomplete suggestions */}
         {showSuggestions && (
           <View style={styles.suggestionList}>
             <FlatList
@@ -624,7 +857,7 @@ export default function HomeScreen() {
               renderItem={renderSuggestion}
               keyExtractor={(_, i) => String(i)}
               keyboardShouldPersistTaps="always"
-              scrollEnabled={false}
+              scrollEnabled={suggestions.length > 4}
             />
           </View>
         )}
@@ -633,12 +866,16 @@ export default function HomeScreen() {
         {!showSuggestions && (
           <>
             <Text style={styles.recentTitle}>Recent</Text>
-            <FlatList
-              data={recentPlaces}
-              renderItem={renderRecentPlace}
-              keyExtractor={item => item.id}
-              scrollEnabled={false}
-            />
+            {recentPlaces.length === 0 ? (
+              <Text style={styles.recentEmpty}>Your recent searches will appear here.</Text>
+            ) : (
+              <FlatList
+                data={recentPlaces}
+                renderItem={renderRecentPlace}
+                keyExtractor={item => item.id}
+                scrollEnabled={false}
+              />
+            )}
           </>
         )}
       </View>
@@ -766,6 +1003,46 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   recentText: { flex: 1, fontSize: 16, color: Colors.textPrimary },
+  recentEmpty: { fontSize: 14, color: Colors.textLight, paddingVertical: Spacing.sm },
+
+  // Suggestion overlay – floats over the map just above the bottom sheet
+  suggestionOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: Spacing.lg,
+    right: Spacing.lg,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    maxHeight: 240,
+    zIndex: 100,
+    elevation: 6,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  // Success toast
+  successToast: {
+    position: 'absolute',
+    top: 80,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#43A047',
+    borderRadius: BorderRadius.round,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    zIndex: 200,
+    elevation: 8,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  successToastText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
   // ── Go Now Modal ──────────────────────────────────────────────────────────
   modalOverlay: {
@@ -869,4 +1146,116 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.primary,
   },
   planTripText: { color: Colors.primary, fontWeight: '600', fontSize: 14 },
+});
+
+// ── Report sheet styles ────────────────────────────────────────────────────────
+
+const sheetStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  kavWrapper: {
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: 36,
+    paddingTop: Spacing.sm,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    backgroundColor: Colors.border,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: Spacing.md,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  kindToggle: {
+    flexDirection: 'row',
+    backgroundColor: Colors.backgroundGray,
+    borderRadius: BorderRadius.md,
+    padding: 3,
+    gap: 3,
+    marginBottom: Spacing.md,
+  },
+  kindBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+  },
+  kindBtnActive: { backgroundColor: Colors.primary },
+  kindBtnText: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  kindBtnTextActive: { color: Colors.white },
+  iconGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+    marginBottom: Spacing.md,
+  },
+  iconCell: {
+    width: '18%',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    gap: 3,
+  },
+  iconCellLabel: {
+    fontSize: 9,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 12,
+  },
+  urgencyRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  urgencyChip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
+    borderWidth: 2,
+  },
+  urgencyChipText: { fontSize: 12, fontWeight: '700' },
+  textInput: {
+    backgroundColor: Colors.backgroundGray,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: Colors.textPrimary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.md,
+  },
+  submitBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+  },
+  submitBtnText: { fontSize: 16, fontWeight: '700', color: Colors.white },
 });
