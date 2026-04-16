@@ -25,6 +25,8 @@ import { consumePendingRoute } from '../services/routeStore';
 import {
   fetchAlerts,
   submitAlert,
+  upvoteAlert,
+  downvoteAlert,
   ICON_ALERT_TYPES,
   URGENCY_LEVELS,
   subtypeIcon,
@@ -80,11 +82,27 @@ function closestCoordIndexForward(coords, lat, lng, fromIdx, maxLookahead = 25) 
   return idx;
 }
 
+/**
+ * Returns the minimum distance (meters) from (lat, lng) to any coord in a
+ * window of [centerIdx-5, centerIdx+50].  Used for off-route detection so a
+ * small GPS jitter near a curve never falsely triggers a reroute.
+ */
+function distanceToNearestCoord(coords, lat, lng, centerIdx) {
+  const start = Math.max(0, centerIdx - 5);
+  const end = Math.min(coords.length, centerIdx + 50);
+  let minDist = Infinity;
+  for (let i = start; i < end; i++) {
+    const d = distanceBetween(lat, lng, coords[i][0], coords[i][1]);
+    if (d < minDist) minDist = d;
+  }
+  return minDist;
+}
+
 // ── Nav Report Sheet ───────────────────────────────────────────────────────────
 // Compact bottom-sheet for reporting alerts directly from navigation without
 // leaving the navigation screen.  Opens as a slide-up modal overlay.
 
-function NavReportSheet({ visible, onClose, onSubmit, userLocation }) {
+function NavReportSheet({ visible, onClose, onSubmit, getUserLocation }) {
   const [alertKind, setAlertKind] = useState('icon');
   const [selectedSubtype, setSelectedSubtype] = useState(null);
   const [selectedUrgency, setSelectedUrgency] = useState(null);
@@ -114,13 +132,16 @@ function NavReportSheet({ visible, onClose, onSubmit, userLocation }) {
       // can just tap an icon and submit without typing while driving.
       const subtypeLabel =
         ICON_ALERT_TYPES.find(t => t.subtype === selectedSubtype)?.label ?? 'Alert';
+      // Always call the getter at submit time so we use the very latest GPS
+      // position from the ref, not whatever React state was at render time.
+      const loc = getUserLocation?.() ?? null;
       const payload = {
         type: 'Traffic',
         subtype: alertKind === 'icon' ? selectedSubtype : null,
         description: description.trim() || subtypeLabel,
         location: null,
-        lat: userLocation?.latitude ?? null,
-        lng: userLocation?.longitude ?? null,
+        lat: loc?.latitude ?? null,
+        lng: loc?.longitude ?? null,
         is_comment: alertKind === 'comment',
         urgency: alertKind === 'comment' ? selectedUrgency : null,
       };
@@ -319,6 +340,25 @@ export default function NavigationScreen() {
   const mapFollowingRef = useRef(true);
   // Mirrors userLocation for use in the alert-polling interval (avoids stale closure).
   const userLocationRef = useRef(null);
+  // Off-route detection: counts consecutive GPS fixes where the user is >75 m
+  // from the route polyline.  Two consecutive readings trigger a reroute so a
+  // single bad GPS fix never causes a spurious recalculation.
+  const offRouteCountRef = useRef(0);
+  // Guards against overlapping reroute fetches if GPS fires rapidly.
+  const isReroutingRef = useRef(false);
+  // Exponential-smoothed GPS position used for the marker and camera so raw
+  // GPS jitter doesn't cause the arrow to snap erratically.  Raw position is
+  // still written to userLocationRef for off-route logic.
+  const smoothedPosRef = useRef(null);
+  // Exponential-smoothed GPS heading for the camera and marker rotation.
+  const smoothedHeadingRef = useRef(0);
+  // Last heading value actually applied to the camera.  The camera heading is
+  // only updated when the smoothed value diverges by more than 15° so small
+  // GPS noise doesn't spin the map constantly.
+  const lastCameraHeadingRef = useRef(0);
+
+  // Shown while a reroute fetch is in flight.
+  const [isRerouting, setIsRerouting] = useState(false);
 
   // ── Load route ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -408,14 +448,39 @@ export default function NavigationScreen() {
       locationSub.current = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.BestForNavigation,
-          distanceInterval: 10,
-          timeInterval: 3000,
+          distanceInterval: 3,
+          timeInterval: 1000,
         },
         pos => {
           const { latitude, longitude, heading: gpsHeading } = pos.coords;
-          setUserLocation({ latitude, longitude });
+
+          // ── Position smoothing ────────────────────────────────────────────
+          // Exponential moving average (α=0.35) so GPS jitter doesn't make
+          // the arrow snap erratically.  Raw GPS is kept in userLocationRef
+          // for off-route detection which needs the true position.
           userLocationRef.current = { latitude, longitude };
-          if (gpsHeading !== null && gpsHeading >= 0) setHeading(gpsHeading);
+          const prevSmoothed = smoothedPosRef.current;
+          const ALPHA_POS = 0.35;
+          const smoothed = prevSmoothed
+            ? {
+                latitude:  prevSmoothed.latitude  * (1 - ALPHA_POS) + latitude  * ALPHA_POS,
+                longitude: prevSmoothed.longitude * (1 - ALPHA_POS) + longitude * ALPHA_POS,
+              }
+            : { latitude, longitude };
+          smoothedPosRef.current = smoothed;
+          setUserLocation(smoothed);
+
+          // ── Heading smoothing ─────────────────────────────────────────────
+          // Smooth the raw GPS heading with a separate EMA (α=0.25) so the
+          // rotation marker doesn't flicker on every tiny GPS wobble.
+          if (gpsHeading !== null && gpsHeading >= 0) {
+            const prevH = smoothedHeadingRef.current;
+            let delta = gpsHeading - prevH;
+            if (delta > 180) delta -= 360;
+            if (delta < -180) delta += 360;
+            smoothedHeadingRef.current = (prevH + 0.25 * delta + 360) % 360;
+            setHeading(smoothedHeadingRef.current);
+          }
 
           const coords = route.decoded_coords ?? [];
           if (coords.length === 0) return;
@@ -428,6 +493,44 @@ export default function NavigationScreen() {
           );
           coordIdxRef.current = idx;
           setCoordIdx(idx);
+
+          // ── Off-route detection ───────────────────────────────────────────
+          // Walking/cycling GPS can stray further from map data than driving,
+          // so the threshold is 150 m for non-car modes vs 75 m for car.
+          // Two consecutive readings beyond the threshold trigger a reroute.
+          const isCarMode = route.commute_type === 'car' || route.commute_type === 'truck';
+          const OFF_ROUTE_THRESHOLD = isCarMode ? 75 : 150;
+          const distToRoute = distanceToNearestCoord(coords, latitude, longitude, idx);
+          if (!isReroutingRef.current) {
+            if (distToRoute > OFF_ROUTE_THRESHOLD) {
+              offRouteCountRef.current += 1;
+              if (offRouteCountRef.current >= 2) {
+                offRouteCountRef.current = 0;
+                isReroutingRef.current = true;
+                setIsRerouting(true);
+                const rerouteMode = route.commute_type ?? 'car';
+                console.log('[Nav] Off-route detected, rerouting from', latitude, longitude, 'mode:', rerouteMode);
+                getRoutes([latitude, longitude], [destLat, destLng], rerouteMode)
+                  .then(newRoutes => {
+                    if (newRoutes.length > 0) {
+                      coordIdxRef.current = 0;
+                      initialRemRef.current = null;
+                      setCoordIdx(0);
+                      setInstrIdx(0);
+                      setRoute(newRoutes[0]);
+                      console.log('[Nav] Reroute complete, new decoded_coords:', newRoutes[0].decoded_coords?.length);
+                    }
+                  })
+                  .catch(e => console.log('[Nav] Reroute failed:', e.message))
+                  .finally(() => {
+                    setIsRerouting(false);
+                    isReroutingRef.current = false;
+                  });
+              }
+            } else {
+              offRouteCountRef.current = 0;
+            }
+          }
 
           // Remaining distance (meters from coordIdx to destination)
           let rem = 0;
@@ -463,14 +566,23 @@ export default function NavigationScreen() {
             }
           }
 
-          // Follow user with the map camera only when the user has not
-          // manually panned away.
-          // altitude: 500 is required for Apple Maps (zoom is a Google Maps
-          // param and is silently ignored on iOS without altitude).
+          // ── Camera follow ─────────────────────────────────────────────────
+          // Only run when the user hasn't manually panned away.
+          // Heading is applied only when the smoothed value has drifted >15°
+          // from the last camera update so minor GPS wobble doesn't spin the
+          // map constantly.  The smoothed GPS position is used here (not raw)
+          // so the camera glides rather than snapping.
           if (mapFollowingRef.current) {
+            const sh = smoothedHeadingRef.current;
+            const prevCamH = lastCameraHeadingRef.current;
+            let hDelta = Math.abs(sh - prevCamH);
+            if (hDelta > 180) hDelta = 360 - hDelta;
+            const cameraHeading = hDelta > 15 ? sh : prevCamH;
+            if (hDelta > 15) lastCameraHeadingRef.current = sh;
+
             mapRef.current?.animateCamera(
-              { center: { latitude, longitude }, altitude: 500, zoom: 17, heading: gpsHeading ?? 0, pitch: 0 },
-              { duration: 600 },
+              { center: smoothed, altitude: 500, zoom: 17, heading: cameraHeading, pitch: 0 },
+              { duration: 300 },
             );
           }
         },
@@ -529,7 +641,24 @@ export default function NavigationScreen() {
 
   // ── Derived display values ─────────────────────────────────────────────────
   const coords = route?.decoded_coords ?? [];
-  const polylineCoords = coords.map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
+
+  // Memoised so the array reference is stable between renders — only changes
+  // when the route itself changes (reroute or initial load).  Passing a new
+  // array object on every render confuses the Fabric Polyline native component
+  // and can cause coordinate updates to be silently dropped.
+  const polylineCoords = useMemo(
+    () => coords.map(([lat, lng]) => ({ latitude: lat, longitude: lng })),
+    [route], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  // Slice that represents the *remaining* portion of the route (from the
+  // user's current position onward).  Also memoised so the reference only
+  // changes when either the route or the user's progress changes — this is
+  // what makes the grey "traveled" section of the polyline visible.
+  const remainingPolyCoords = useMemo(
+    () => polylineCoords.slice(coordIdx),
+    [polylineCoords, coordIdx],
+  );
 
   const destCoord = {
     latitude: isNaN(destLat) ? 0 : destLat,
@@ -636,16 +765,16 @@ export default function NavigationScreen() {
             <Polyline
               key={polylineCoords.length}
               coordinates={polylineCoords}
-              strokeColor="#90A4AE"
-              strokeWidth={100}
+              strokeColor="#808080"
+              strokeWidth={7}
             />
           )}
-          {mapReady && polylineCoords.length > 1 && (
+          {mapReady && remainingPolyCoords.length > 1 && (
             <Polyline
               key={`blue-${polylineCoords.length}`}
-              coordinates={polylineCoords.slice(Math.max(0, coordIdx))}
+              coordinates={remainingPolyCoords}
               strokeColor="#1A73E8"
-              strokeWidth={110}
+              strokeWidth={10}
             />
           )}
           {mapReady && hasValidDest && (
@@ -746,6 +875,14 @@ export default function NavigationScreen() {
           </ScrollView>
         )}
       </View>
+
+      {/* ── Recalculating banner ─────────────────────────────────────────── */}
+      {isRerouting && (
+        <View style={styles.reroutingBanner}>
+          <ActivityIndicator size="small" color="#fff" />
+          <Text style={styles.reroutingText}>Recalculating…</Text>
+        </View>
+      )}
 
       {/* ── Arrived banner ───────────────────────────────────────────────── */}
       {arrived && (
@@ -1024,6 +1161,27 @@ const styles = StyleSheet.create({
   instrItemActive: { backgroundColor: Colors.primaryLight ?? '#E8F5E2' },
   instrItemText: { fontSize: 14, color: Colors.textSecondary, lineHeight: 20 },
   instrItemTextActive: { color: Colors.primaryDark ?? Colors.primary, fontWeight: '700' },
+
+  // ── Recalculating banner ──────────────────────────────────────────────────
+  reroutingBanner: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: '18%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    backgroundColor: '#1A73E8',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 10,
+    borderRadius: BorderRadius.round,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 8,
+    zIndex: 50,
+  },
+  reroutingText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
   // ── Arrived banner ────────────────────────────────────────────────────────
   arrivedBanner: {

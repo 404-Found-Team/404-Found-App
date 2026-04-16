@@ -5,6 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import requests
 import cachetools.func
 from datetime import datetime, timezone
+from flexpolyline import decode as _fp_decode
 from config import Config
 
 API_KEY = Config.HERE_API_KEY
@@ -17,60 +18,17 @@ GEOCODE_URL = "https://geocode.search.hereapi.com/v1/geocode"
 
 
 # ── Flexible Polyline Decoder ──────────────────────────────────────────────────
-# Decodes HERE's flexible polyline format into [[lat, lng], ...] without
-# extra dependencies. Spec: https://github.com/heremaps/flexible-polyline
-
-_ENCODING_TABLE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-_DECODING_TABLE: dict[str, int] = {c: i for i, c in enumerate(_ENCODING_TABLE)}
-
-
-def _decode_unsigned_varint(encoded: str, index: int) -> tuple[int, int]:
-    result = 0
-    shift = 0
-    while index < len(encoded):
-        char_val = _DECODING_TABLE.get(encoded[index], 0)
-        index += 1
-        result |= (char_val & 0x1F) << shift
-        if (char_val & 0x20) == 0:
-            break
-        shift += 5
-    return result, index
-
-
-def _to_signed(value: int) -> int:
-    if value & 1:
-        return ~(value >> 1)
-    return value >> 1
-
+# Uses HERE's official flexpolyline package (here-flexpolyline on PyPI) so the
+# precision factor is always applied correctly.
 
 def decode_flexible_polyline(encoded: str) -> list[list[float]]:
     """Decode a HERE flexible polyline string into [[lat, lng], ...] pairs."""
     if not encoded:
         return []
     try:
-        header_val = _DECODING_TABLE.get(encoded[0], 0)
-        precision = header_val & 0xF
-        is_3d = (header_val >> 4) & 1
-        factor = 10 ** precision
-
-        coords: list[list[float]] = []
-        index = 1
-        last_lat = 0
-        last_lng = 0
-
-        while index < len(encoded):
-            delta_lat, index = _decode_unsigned_varint(encoded, index)
-            last_lat += _to_signed(delta_lat)
-
-            delta_lng, index = _decode_unsigned_varint(encoded, index)
-            last_lng += _to_signed(delta_lng)
-
-            if is_3d:
-                _, index = _decode_unsigned_varint(encoded, index)
-
-            coords.append([round(last_lat / factor, 6), round(last_lng / factor, 6)])
-
-        return coords
+        # _fp_decode returns [(lat, lng), ...] for 2D or [(lat, lng, alt), ...] for 3D.
+        # The *_ unpacks and discards the optional altitude so both cases are handled.
+        return [[lat, lng] for lat, lng, *_ in _fp_decode(encoded)]
     except Exception as e:
         print(f"[traffic] Polyline decode error: {e}")
         return []

@@ -267,8 +267,15 @@ function MartaLiveWidget({ trains, loading, error }) {
 // ── Route Map Preview ─────────────────────────────────────────────────────────
 
 function RouteMapPreview({ route }) {
-  if (!route?.decoded_coords?.length) return null;
+  const [mapReady, setMapReady] = React.useState(false);
+
+  if (!route?.decoded_coords?.length) {
+    console.log('[RouteMapPreview] No decoded_coords — map preview hidden. route keys:', route ? Object.keys(route) : 'null');
+    return null;
+  }
+
   const coords = route.decoded_coords.map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
+  console.log('[RouteMapPreview] decoded_coords count:', coords.length, 'sample:', JSON.stringify(coords.slice(0, 2)));
 
   // Compute bounding box so the polyline always fills the preview regardless of length
   const lats = coords.map(c => c.latitude);
@@ -298,14 +305,24 @@ function RouteMapPreview({ route }) {
         rotateEnabled={false}
         showsPointsOfInterest={false}
         pointerEvents="none"
+        onMapReady={() => {
+          console.log('[RouteMapPreview] onMapReady fired, coords:', coords.length);
+          setMapReady(true);
+        }}
       >
-        <Polyline
-          coordinates={coords}
-          strokeColor={Colors.primary}
-          strokeWidth={4}
-        />
-        <Marker coordinate={coords[0]} pinColor={Colors.primaryDark ?? Colors.primary} />
-        <Marker coordinate={coords[coords.length - 1]} pinColor="#E53935" />
+        {/* Gate on mapReady — on the new Fabric architecture a Polyline mounted
+            before the native map layer is ready enters an invalid state and never
+            renders, even after the coordinates prop updates. */}
+        {mapReady && (
+          <Polyline
+            key={coords.length}
+            coordinates={coords}
+            strokeColor={Colors.primary}
+            strokeWidth={4}
+          />
+        )}
+        {mapReady && <Marker coordinate={coords[0]} pinColor={Colors.primaryDark ?? Colors.primary} />}
+        {mapReady && <Marker coordinate={coords[coords.length - 1]} pinColor="#E53935" />}
       </MapView>
     </View>
   );
@@ -493,6 +510,10 @@ export default function RoutesScreen() {
 
       // Filter out routes with obviously corrupt durations (HERE API transit bug)
       const validRoutes = result.filter(r => r.eta_minutes <= 1440);
+      console.log('[RoutesScreen] routes returned:', result.length, 'valid:', validRoutes.length);
+      if (validRoutes.length > 0) {
+        console.log('[RoutesScreen] first route decoded_coords:', validRoutes[0].decoded_coords?.length, 'sample:', JSON.stringify(validRoutes[0].decoded_coords?.slice(0, 2)));
+      }
       setRoutes(validRoutes);
       if (validRoutes.length > 0) setSelectedRoute(validRoutes[0]);
     } catch (err) {
