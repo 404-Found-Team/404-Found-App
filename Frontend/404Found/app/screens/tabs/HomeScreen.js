@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
   Platform,
   ActivityIndicator,
   Alert,
@@ -290,7 +289,9 @@ export default function HomeScreen() {
   // ── Recent places – load from storage on mount ────────────────────────────
   useEffect(() => {
     AsyncStorage.getItem(RECENT_PLACES_KEY)
-      .then(raw => { if (raw) setRecentPlaces(JSON.parse(raw)); })
+      .then(raw => {
+        if (raw) setRecentPlaces(JSON.parse(raw).slice(0, MAX_RECENT));
+      })
       .catch(() => {});
   }, []);
 
@@ -482,6 +483,7 @@ export default function HomeScreen() {
         longitudeDelta: 0.05,
       }
     : GSU_REGION;
+  const recentPlacesToShow = recentPlaces.slice(0, MAX_RECENT);
 
   // ── Marker renderers ───────────────────────────────────────────────────────
 
@@ -738,6 +740,12 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.logoButton}>
@@ -852,13 +860,11 @@ export default function HomeScreen() {
         {/* Autocomplete suggestions */}
         {showSuggestions && (
           <View style={styles.suggestionList}>
-            <FlatList
-              data={suggestions}
-              renderItem={renderSuggestion}
-              keyExtractor={(_, i) => String(i)}
-              keyboardShouldPersistTaps="always"
-              scrollEnabled={suggestions.length > 4}
-            />
+            {suggestions.map((item, index) => (
+              <View key={`${item.title}-${index}`}>
+                {renderSuggestion({ item })}
+              </View>
+            ))}
           </View>
         )}
 
@@ -866,19 +872,19 @@ export default function HomeScreen() {
         {!showSuggestions && (
           <>
             <Text style={styles.recentTitle}>Recent</Text>
-            {recentPlaces.length === 0 ? (
+            {recentPlacesToShow.length === 0 ? (
               <Text style={styles.recentEmpty}>Your recent searches will appear here.</Text>
             ) : (
-              <FlatList
-                data={recentPlaces}
-                renderItem={renderRecentPlace}
-                keyExtractor={item => item.id}
-                scrollEnabled={false}
-              />
+              recentPlacesToShow.map(item => (
+                <View key={item.id}>
+                  {renderRecentPlace({ item })}
+                </View>
+              ))
             )}
           </>
         )}
       </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -887,6 +893,8 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  scrollView: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -906,7 +914,7 @@ const styles = StyleSheet.create({
   },
   headerIcons: { flexDirection: 'row', gap: Spacing.md },
   iconButton: { padding: Spacing.xs },
-  mapContainer: { flex: 1, position: 'relative' },
+  mapContainer: { height: 440, position: 'relative' },
   map: { ...StyleSheet.absoluteFillObject },
   mapLoading: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.backgroundGray },
   mapLoadingText: { marginTop: Spacing.sm, color: Colors.textSecondary, fontSize: 14 },
@@ -962,7 +970,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: BorderRadius.xl,
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
-    minHeight: '35%',
     zIndex: 20,
   },
   whereToTitle: { fontSize: 24, fontWeight: 'bold', color: Colors.textPrimary, marginBottom: Spacing.md },

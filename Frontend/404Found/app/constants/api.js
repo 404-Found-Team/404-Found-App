@@ -19,7 +19,7 @@ function resolveApiBaseUrl() {
       Constants.expoConfig?.hostUri ??
       // Older SDK fallback
       Constants.manifest?.debuggerHost ??
-      '127.0.0.1:8081';
+      '10.250.6.213:8081';
 
     const host = hostUri.split(':')[0];
     return `http://${host}:8000/api/v1`;
