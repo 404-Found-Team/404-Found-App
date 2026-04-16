@@ -88,13 +88,18 @@ def create_tables(conn):
     cur.execute("CREATE TABLE safety_feed \
                  (alert_id INTEGER PRIMARY KEY AUTOINCREMENT, \
                  user_id INT, \
-                 type VARCHAR(75) NOT NULL CHECK(type IN ('Safety', 'Traffic', 'Construction', 'Delay', 'Weather')), \
+                 type VARCHAR(75) NOT NULL, \
+                 subtype VARCHAR(75), \
                  description TEXT NOT NULL, \
-                 location VARCHAR(255) NOT NULL, \
-                 upvotes INT NOT NULL, \
-                 downvotes INT NOT NULL, \
+                 location VARCHAR(255), \
+                 lat REAL, \
+                 lng REAL, \
+                 is_comment INTEGER NOT NULL DEFAULT 0, \
+                 urgency VARCHAR(20), \
+                 upvotes INT NOT NULL DEFAULT 0, \
+                 downvotes INT NOT NULL DEFAULT 0, \
                  created_at DATETIME NOT NULL, \
-                 is_active INTEGER CHECK(is_active IN (0, 1)) NOT NULL, \
+                 is_active INTEGER CHECK(is_active IN (0, 1)) NOT NULL DEFAULT 1, \
                  FOREIGN KEY(user_id) REFERENCES user(user_id)) \
                 ")
 

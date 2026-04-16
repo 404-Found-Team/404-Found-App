@@ -29,6 +29,11 @@ class RouteData(BaseModel):
     origin: Tuple[float, float]
     destination: Tuple[float, float]
     polyline: str
+    # Decoded [[lat, lng], ...] coordinates for drawing the route on a map.
+    # Computed server-side from HERE's flexible polyline so the frontend
+    # doesn't need a decoding library.
+    decoded_coords: Optional[List[List[float]]] = Field(default_factory=list)
+    delay_minutes: Optional[int] = 0
 
     class Config:
         from_attributes = True
