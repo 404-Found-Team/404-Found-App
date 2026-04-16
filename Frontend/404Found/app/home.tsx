@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
@@ -52,9 +53,12 @@ export default function SignInScreen() {
         style={styles.content}
       >
         <View style={styles.logoContainer}>
-          <View style={styles.logoBox}>
-            <MaterialCommunityIcons name="map-marker" size={60} color={Colors.primaryDark} />
-          </View>
+          <Image
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            source={require('../assets/images1/colored-logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
 
         <Text style={styles.title}>Welcome Back</Text>
@@ -162,13 +166,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.xl,
   },
-  logoBox: {
-    width: 100,
-    height: 100,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: BorderRadius.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
+  logoImage: {
+    width: 180,
+    height: 180,
   },
   title: {
     fontSize: 32,

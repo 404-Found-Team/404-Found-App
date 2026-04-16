@@ -14,6 +14,7 @@ import {
   ScrollView,
   Pressable,
 } from 'react-native';
+import { Image } from 'react-native';
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -27,7 +28,10 @@ import {
   fetchTrafficIncidents,
   subtypeIcon,
   subtypeColor,
+  urgencyColor,
   submitAlert,
+  upvoteAlert,
+  downvoteAlert,
   ICON_ALERT_TYPES,
   URGENCY_LEVELS,
 } from '../../services/alertService';
@@ -283,6 +287,13 @@ export default function HomeScreen() {
   const [showReportSheet, setShowReportSheet] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
 
+  // ── Alert map popup + voting ───────────────────────────────────────────────
+  // Callout children on iOS don't receive touch events reliably, so voting is
+  // handled via a floating popup outside the MapView instead.
+  const [selectedHomeAlert, setSelectedHomeAlert] = useState(null);
+  const [homeUpvotedIds, setHomeUpvotedIds] = useState(new Set());
+  const [homeDownvotedIds, setHomeDownvotedIds] = useState(new Set());
+
   // Recent places – persisted across sessions with AsyncStorage
   const [recentPlaces, setRecentPlaces] = useState([]);
 
@@ -336,11 +347,13 @@ export default function HomeScreen() {
   }, [userLocation]);
 
   // ── Fetch alerts & incidents whenever screen is focused ────────────────────
-  const loadMapData = useCallback(async () => {
+  // Accepts optional lat/lng so the focus handler can pass a freshly-fetched
+  // position without waiting for the setUserLocation state update to propagate.
+  const loadMapData = useCallback(async (overrideLat, overrideLng) => {
     setDataLoading(true);
     try {
-      const lat = userLocation?.latitude ?? GSU_REGION.latitude;
-      const lng = userLocation?.longitude ?? GSU_REGION.longitude;
+      const lat = overrideLat ?? userLocation?.latitude ?? GSU_REGION.latitude;
+      const lng = overrideLng ?? userLocation?.longitude ?? GSU_REGION.longitude;
       const [alertData, incidentData] = await Promise.all([
         fetchAlerts(lat, lng),
         fetchTrafficIncidents(lat, lng, 8000),
@@ -354,8 +367,25 @@ export default function HomeScreen() {
     }
   }, [userLocation]);
 
+  // Re-fetch the user's GPS position every time the screen comes back into
+  // focus (e.g. returning from NavigationScreen) so alerts and the recenter
+  // button use the current location, not the trip-start position.
   useFocusEffect(
-    useCallback(() => { loadMapData(); }, [loadMapData]),
+    useCallback(() => {
+      (async () => {
+        let freshLat, freshLng;
+        try {
+          const loc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          setUserLocation(loc.coords);
+          userLocationRef.current = loc.coords;
+          freshLat = loc.coords.latitude;
+          freshLng = loc.coords.longitude;
+        } catch { /* keep last known position */ }
+        loadMapData(freshLat, freshLng);
+      })();
+    }, [loadMapData]),
   );
 
   // ── Background alert polling ───────────────────────────────────────────────
@@ -465,6 +495,29 @@ export default function HomeScreen() {
     }, 600);
   }
 
+  // ── Alert map voting ────────────────────────────────────────────────────────
+  async function handleHomeUpvote(alertId) {
+    if (homeUpvotedIds.has(alertId)) return;
+    try {
+      const updated = await upvoteAlert(alertId);
+      setAlerts(prev => prev.map(a => a.alert_id === alertId ? { ...a, upvotes: updated.upvotes } : a));
+      setSelectedHomeAlert(prev => prev?.alert_id === alertId ? { ...prev, upvotes: updated.upvotes } : prev);
+      setHomeUpvotedIds(prev => new Set([...prev, alertId]));
+      setHomeDownvotedIds(prev => { const n = new Set(prev); n.delete(alertId); return n; });
+    } catch { /* silent */ }
+  }
+
+  async function handleHomeDownvote(alertId) {
+    if (homeDownvotedIds.has(alertId)) return;
+    try {
+      const updated = await downvoteAlert(alertId);
+      setAlerts(prev => prev.map(a => a.alert_id === alertId ? { ...a, downvotes: updated.downvotes } : a));
+      setSelectedHomeAlert(prev => prev?.alert_id === alertId ? { ...prev, downvotes: updated.downvotes } : prev);
+      setHomeDownvotedIds(prev => new Set([...prev, alertId]));
+      setHomeUpvotedIds(prev => { const n = new Set(prev); n.delete(alertId); return n; });
+    } catch { /* silent */ }
+  }
+
   // ── Alert submit handler ────────────────────────────────────────────────────
   async function handleAlertSubmit(payload) {
     const newAlert = await submitAlert(payload);
@@ -487,6 +540,8 @@ export default function HomeScreen() {
 
   // ── Marker renderers ───────────────────────────────────────────────────────
 
+  // Callout children on iOS don't receive touch events — votes use an external
+  // popup instead.  onPress opens the popup; the Callout is removed entirely.
   function renderAlertMarker(alert) {
     if (!alert.lat || !alert.lng) return null;
 
@@ -496,23 +551,12 @@ export default function HomeScreen() {
         <Marker
           key={`comment-${alert.alert_id}`}
           coordinate={{ latitude: alert.lat, longitude: alert.lng }}
+          tracksViewChanges={false}
+          onPress={() => setSelectedHomeAlert(alert)}
         >
           <View style={[styles.commentBubble, { borderColor }]}>
             <MaterialCommunityIcons name="dots-horizontal" size={16} color={borderColor} />
           </View>
-          <Callout tooltip>
-            <View style={styles.callout}>
-              <Text style={styles.calloutTitle}>{alert.type}</Text>
-              <Text style={styles.calloutBody}>{alert.description}</Text>
-              {alert.location ? <Text style={styles.calloutSub}>{alert.location}</Text> : null}
-              <View style={styles.calloutVotes}>
-                <MaterialCommunityIcons name="thumb-up-outline" size={12} color={Colors.textSecondary} />
-                <Text style={styles.calloutVoteText}>{alert.upvotes}</Text>
-                <MaterialCommunityIcons name="thumb-down-outline" size={12} color={Colors.textSecondary} style={{ marginLeft: 8 }} />
-                <Text style={styles.calloutVoteText}>{alert.downvotes}</Text>
-              </View>
-            </View>
-          </Callout>
         </Marker>
       );
     }
@@ -523,23 +567,12 @@ export default function HomeScreen() {
       <Marker
         key={`icon-${alert.alert_id}`}
         coordinate={{ latitude: alert.lat, longitude: alert.lng }}
+        tracksViewChanges={false}
+        onPress={() => setSelectedHomeAlert(alert)}
       >
         <View style={[styles.iconMarker, { backgroundColor: iconColor + '22', borderColor: iconColor }]}>
           <MaterialCommunityIcons name={iconName} size={18} color={iconColor} />
         </View>
-        <Callout tooltip>
-          <View style={styles.callout}>
-            <Text style={styles.calloutTitle}>{alert.subtype?.replace(/_/g, ' ') ?? alert.type}</Text>
-            <Text style={styles.calloutBody}>{alert.description}</Text>
-            {alert.location ? <Text style={styles.calloutSub}>{alert.location}</Text> : null}
-            <View style={styles.calloutVotes}>
-              <MaterialCommunityIcons name="thumb-up-outline" size={12} color={Colors.textSecondary} />
-              <Text style={styles.calloutVoteText}>{alert.upvotes}</Text>
-              <MaterialCommunityIcons name="thumb-down-outline" size={12} color={Colors.textSecondary} style={{ marginLeft: 8 }} />
-              <Text style={styles.calloutVoteText}>{alert.downvotes}</Text>
-            </View>
-          </View>
-        </Callout>
       </Marker>
     );
   }
@@ -749,7 +782,11 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.logoButton}>
-          <MaterialCommunityIcons name="map-marker" size={28} color={Colors.primaryDark} />
+          <Image
+            source={require('../../../assets/images1/colored-logo.png')}
+            style={{ width: 40, height: 40 }}
+            resizeMode="contain"
+          />
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.iconButton}>
@@ -794,6 +831,69 @@ export default function HomeScreen() {
             {incidents.map(renderIncidentMarker)}
           </MapView>
         )}
+
+        {/* Alert detail popup — opens when a marker is tapped */}
+        {selectedHomeAlert && (() => {
+          const a = selectedHomeAlert;
+          const isComment = a.is_comment;
+          const popupColor = isComment ? urgencyColor(a.urgency) : subtypeColor(a.subtype);
+          const popupIcon  = isComment ? 'comment-text' : subtypeIcon(a.subtype);
+          const didUp   = homeUpvotedIds.has(a.alert_id);
+          const didDown = homeDownvotedIds.has(a.alert_id);
+          return (
+            <View style={styles.alertPopup}>
+              <View style={styles.alertPopupHeader}>
+                <View style={[styles.alertPopupIconBadge, { backgroundColor: popupColor + '22' }]}>
+                  <MaterialCommunityIcons name={popupIcon} size={16} color={popupColor} />
+                </View>
+                <Text style={styles.alertPopupTitle} numberOfLines={1}>
+                  {isComment
+                    ? (a.urgency ? `${a.urgency.charAt(0).toUpperCase() + a.urgency.slice(1)} Alert` : 'Community Note')
+                    : (a.subtype?.replace(/_/g, ' ') ?? a.type ?? 'Alert')}
+                </Text>
+                <TouchableOpacity onPress={() => setSelectedHomeAlert(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <MaterialCommunityIcons name="close" size={16} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              {!!a.description && (
+                <Text style={styles.alertPopupDesc} numberOfLines={2}>{a.description}</Text>
+              )}
+              {!!a.location && (
+                <Text style={styles.alertPopupLoc} numberOfLines={1}>{a.location}</Text>
+              )}
+              <View style={styles.alertPopupFooter}>
+                <TouchableOpacity
+                  style={styles.alertPopupVoteBtn}
+                  onPress={() => handleHomeUpvote(a.alert_id)}
+                  disabled={didUp}
+                >
+                  <MaterialCommunityIcons
+                    name={didUp ? 'thumb-up' : 'thumb-up-outline'}
+                    size={16}
+                    color={didUp ? Colors.primary : Colors.textSecondary}
+                  />
+                  <Text style={[styles.alertPopupVoteText, didUp && { color: Colors.primary }]}>
+                    {a.upvotes ?? 0}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.alertPopupVoteBtn}
+                  onPress={() => handleHomeDownvote(a.alert_id)}
+                  disabled={didDown}
+                >
+                  <MaterialCommunityIcons
+                    name={didDown ? 'thumb-down' : 'thumb-down-outline'}
+                    size={16}
+                    color={didDown ? '#E74C3C' : Colors.textSecondary}
+                  />
+                  <Text style={[styles.alertPopupVoteText, didDown && { color: '#E74C3C' }]}>
+                    {a.downvotes ?? 0}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          );
+        })()}
 
         {dataLoading && !locationLoading && (
           <View style={styles.dataLoadingBadge}>
@@ -1030,6 +1130,74 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
+  // ── Alert detail popup (floats over the map) ─────────────────────────────
+  alertPopup: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 12,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 10,
+    zIndex: 50,
+  },
+  alertPopupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginBottom: 4,
+  },
+  alertPopupIconBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  alertPopupTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    textTransform: 'capitalize',
+  },
+  alertPopupDesc: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 17,
+    marginBottom: 2,
+  },
+  alertPopupLoc: {
+    fontSize: 11,
+    color: Colors.textLight,
+    marginBottom: 4,
+  },
+  alertPopupFooter: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  alertPopupVoteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 2,
+  },
+  alertPopupVoteText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+
   // Success toast
   successToast: {
     position: 'absolute',

@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Switch,
   Alert,
+  Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import axios from 'axios';
@@ -82,13 +83,13 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.logoButton}>
-          <TouchableOpacity
-            onPress={() => router.push('/(tabs)/home')}
-          >
-            <Icon name="map-marker" size={28} color={Colors.primaryDark} />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={() => router.push('/(tabs)/home')}>
+          <Image
+            source={require('../../assets/images1/colored-logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+        </TouchableOpacity>
         
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.iconButton}>
@@ -232,11 +233,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
+  logoImage: {
+    width: 44,
+    height: 44,
+  },
   logoButton: {
     width: 50,
     height: 50,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: BorderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
   },

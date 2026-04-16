@@ -14,6 +14,7 @@ import {
   Modal,
   Pressable,
   Platform,
+  Image,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -363,7 +364,11 @@ export default function ParkingScreen() {
 
       <View style={styles.header}>
         <View style={styles.logoButton}>
-          <MaterialCommunityIcons name="map-marker" size={28} color={Colors.primaryDark} />
+          <Image
+            source={require('../../../assets/images1/colored-logo.png')}
+            style={{ width: 40, height: 40 }}
+            resizeMode="contain"
+          />
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.iconButton}>
@@ -456,7 +461,6 @@ const styles = StyleSheet.create({
   logoButton: {
     width: 50,
     height: 50,
-    backgroundColor: Colors.primaryLight,
     borderRadius: BorderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',

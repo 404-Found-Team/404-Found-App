@@ -326,6 +326,12 @@ export default function NavigationScreen() {
   // Briefly shown after successfully submitting an alert.
   const [reportSuccess, setReportSuccess] = useState(false);
 
+  // Voting state for alert markers shown on the navigation map.
+  const [navUpvotedIds, setNavUpvotedIds] = useState(new Set());
+  const [navDownvotedIds, setNavDownvotedIds] = useState(new Set());
+  // The alert whose popup card is currently open (null = none).
+  const [selectedNavAlert, setSelectedNavAlert] = useState(null);
+
   const locationSub = useRef(null);
   // Tracks the latest coordIdx inside the watchPosition closure so it always
   // sees the current value rather than the stale captured state.
@@ -346,6 +352,10 @@ export default function NavigationScreen() {
   const offRouteCountRef = useRef(0);
   // Guards against overlapping reroute fetches if GPS fires rapidly.
   const isReroutingRef = useRef(false);
+  // Timestamp (ms) of the last completed reroute.  Off-route detection is
+  // suppressed for 8 s after a reroute so rapid GPS callbacks on the new route
+  // can't immediately chain into another reroute and crash the app.
+  const rerouteCooldownRef = useRef(0);
   // Exponential-smoothed GPS position used for the marker and camera so raw
   // GPS jitter doesn't cause the arrow to snap erratically.  Raw position is
   // still written to userLocationRef for off-route logic.
@@ -460,7 +470,7 @@ export default function NavigationScreen() {
           // for off-route detection which needs the true position.
           userLocationRef.current = { latitude, longitude };
           const prevSmoothed = smoothedPosRef.current;
-          const ALPHA_POS = 0.35;
+          const ALPHA_POS = 0.2; // lower = more smoothing, less GPS jitter
           const smoothed = prevSmoothed
             ? {
                 latitude:  prevSmoothed.latitude  * (1 - ALPHA_POS) + latitude  * ALPHA_POS,
@@ -478,7 +488,7 @@ export default function NavigationScreen() {
             let delta = gpsHeading - prevH;
             if (delta > 180) delta -= 360;
             if (delta < -180) delta += 360;
-            smoothedHeadingRef.current = (prevH + 0.25 * delta + 360) % 360;
+            smoothedHeadingRef.current = (prevH + 0.15 * delta + 360) % 360; // lower α = smoother rotation
             setHeading(smoothedHeadingRef.current);
           }
 
@@ -501,7 +511,10 @@ export default function NavigationScreen() {
           const isCarMode = route.commute_type === 'car' || route.commute_type === 'truck';
           const OFF_ROUTE_THRESHOLD = isCarMode ? 75 : 150;
           const distToRoute = distanceToNearestCoord(coords, latitude, longitude, idx);
-          if (!isReroutingRef.current) {
+          const reroutableNow =
+            !isReroutingRef.current &&
+            Date.now() - rerouteCooldownRef.current > 8_000;
+          if (reroutableNow) {
             if (distToRoute > OFF_ROUTE_THRESHOLD) {
               offRouteCountRef.current += 1;
               if (offRouteCountRef.current >= 2) {
@@ -513,6 +526,7 @@ export default function NavigationScreen() {
                 getRoutes([latitude, longitude], [destLat, destLng], rerouteMode)
                   .then(newRoutes => {
                     if (newRoutes.length > 0) {
+                      rerouteCooldownRef.current = Date.now();
                       coordIdxRef.current = 0;
                       initialRemRef.current = null;
                       setCoordIdx(0);
@@ -630,6 +644,31 @@ export default function NavigationScreen() {
     );
   }
 
+  // ── Nav alert voting ────────────────────────────────────────────────────────
+  async function handleNavUpvote(alertId) {
+    if (navUpvotedIds.has(alertId)) return;
+    try {
+      const updated = await upvoteAlert(alertId);
+      setNavAlerts(prev => prev.map(a => a.alert_id === alertId ? { ...a, upvotes: updated.upvotes } : a));
+      setSelectedNavAlert(prev => prev?.alert_id === alertId ? { ...prev, upvotes: updated.upvotes } : prev);
+      setNavUpvotedIds(prev => new Set([...prev, alertId]));
+      // Upvote and downvote are mutually exclusive — clear any existing downvote.
+      setNavDownvotedIds(prev => { const n = new Set(prev); n.delete(alertId); return n; });
+    } catch { /* silent */ }
+  }
+
+  async function handleNavDownvote(alertId) {
+    if (navDownvotedIds.has(alertId)) return;
+    try {
+      const updated = await downvoteAlert(alertId);
+      setNavAlerts(prev => prev.map(a => a.alert_id === alertId ? { ...a, downvotes: updated.downvotes } : a));
+      setSelectedNavAlert(prev => prev?.alert_id === alertId ? { ...prev, downvotes: updated.downvotes } : prev);
+      setNavDownvotedIds(prev => new Set([...prev, alertId]));
+      // Downvote and upvote are mutually exclusive — clear any existing upvote.
+      setNavUpvotedIds(prev => { const n = new Set(prev); n.delete(alertId); return n; });
+    } catch { /* silent */ }
+  }
+
   // ── Alert submit handler ────────────────────────────────────────────────────
   async function handleAlertSubmit(payload) {
     const newAlert = await submitAlert(payload);
@@ -651,10 +690,15 @@ export default function NavigationScreen() {
     [route], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
-  // Slice that represents the *remaining* portion of the route (from the
-  // user's current position onward).  Also memoised so the reference only
-  // changes when either the route or the user's progress changes — this is
-  // what makes the grey "traveled" section of the polyline visible.
+  // Traveled portion (grey): from route start up to and including the current
+  // position.  Shares one point with remainingPolyCoords to avoid a visual gap.
+  // Empty until coordIdx > 0 so the full route appears blue at the start.
+  const traveledPolyCoords = useMemo(
+    () => (coordIdx > 0 ? polylineCoords.slice(0, coordIdx + 1) : []),
+    [polylineCoords, coordIdx],
+  );
+
+  // Remaining portion (blue): from the current position to the destination.
   const remainingPolyCoords = useMemo(
     () => polylineCoords.slice(coordIdx),
     [polylineCoords, coordIdx],
@@ -761,20 +805,30 @@ export default function NavigationScreen() {
               prop updates.  Keying on polylineCoords.length means the
               component mounts for the first time with valid data, and
               subsequent coordIdx updates flow through as normal prop changes. */}
-          {mapReady && polylineCoords.length > 1 && (
+          {/* Traveled portion: grey slice from route start to current position.
+              Only appears once the user has advanced past the first coord so
+              the full route starts as solid blue and greys out behind them. */}
+          {mapReady && traveledPolyCoords.length > 1 && (
             <Polyline
-              key={polylineCoords.length}
-              coordinates={polylineCoords}
-              strokeColor="#808080"
-              strokeWidth={7}
+              key={`gray-${polylineCoords.length}`}
+              coordinates={traveledPolyCoords}
+              strokeColor="#909090FF"
+              strokeWidth={1}
+              zIndex={1}
+              lineCap="round"
+              lineJoin="round"
             />
           )}
+          {/* Remaining portion: blue slice from current position to destination. */}
           {mapReady && remainingPolyCoords.length > 1 && (
             <Polyline
               key={`blue-${polylineCoords.length}`}
               coordinates={remainingPolyCoords}
-              strokeColor="#1A73E8"
+              strokeColor="#1A73E8FF"
               strokeWidth={10}
+              zIndex={2}
+              lineCap="round"
+              lineJoin="round"
             />
           )}
           {mapReady && hasValidDest && (
@@ -795,6 +849,7 @@ export default function NavigationScreen() {
               flat
               rotation={heading}
               zIndex={10}
+              tracksViewChanges
             >
               <View style={styles.navMarker}>
                 <MaterialCommunityIcons name="navigation" size={20} color="#fff" />
@@ -818,6 +873,7 @@ export default function NavigationScreen() {
                 coordinate={{ latitude: alert.lat, longitude: alert.lng }}
                 anchor={{ x: 0.5, y: 0.5 }}
                 zIndex={5}
+                onPress={() => setSelectedNavAlert(alert)}
               >
                 <View style={[styles.alertMapMarker, { borderColor: color + 'AA' }]}>
                   <MaterialCommunityIcons name={icon} size={18} color={color} />
@@ -964,12 +1020,72 @@ export default function NavigationScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* ── Alert detail popup (tap a map marker to open) ────────────────── */}
+      {selectedNavAlert && (() => {
+        const a = selectedNavAlert;
+        const isComment = a.is_comment;
+        const popupIcon  = isComment ? 'comment-text' : (a.subtype ? subtypeIcon(a.subtype) : 'alert-circle');
+        const popupColor = isComment ? urgencyColor(a.urgency) : (a.subtype ? subtypeColor(a.subtype) : '#F5A623');
+        const didUp   = navUpvotedIds.has(a.alert_id);
+        const didDown = navDownvotedIds.has(a.alert_id);
+        return (
+          <View style={styles.alertPopup}>
+            <View style={styles.alertPopupHeader}>
+              <View style={[styles.alertPopupIconBadge, { backgroundColor: popupColor + '22' }]}>
+                <MaterialCommunityIcons name={popupIcon} size={18} color={popupColor} />
+              </View>
+              <Text style={styles.alertPopupTitle} numberOfLines={1}>
+                {isComment
+                  ? (a.urgency ? `${a.urgency.charAt(0).toUpperCase() + a.urgency.slice(1)} Alert` : 'Community Note')
+                  : (a.subtype?.replace(/_/g, ' ') ?? a.type ?? 'Alert')}
+              </Text>
+              <TouchableOpacity onPress={() => setSelectedNavAlert(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <MaterialCommunityIcons name="close" size={18} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            {!!a.description && (
+              <Text style={styles.alertPopupDesc} numberOfLines={2}>{a.description}</Text>
+            )}
+            <View style={styles.alertPopupFooter}>
+              <TouchableOpacity
+                style={styles.alertPopupVoteBtn}
+                onPress={() => handleNavUpvote(a.alert_id)}
+                disabled={didUp}
+              >
+                <MaterialCommunityIcons
+                  name={didUp ? 'thumb-up' : 'thumb-up-outline'}
+                  size={18}
+                  color={didUp ? Colors.primary : Colors.textSecondary}
+                />
+                <Text style={[styles.alertPopupVoteText, didUp && { color: Colors.primary }]}>
+                  {a.upvotes ?? 0}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.alertPopupVoteBtn}
+                onPress={() => handleNavDownvote(a.alert_id)}
+                disabled={didDown}
+              >
+                <MaterialCommunityIcons
+                  name={didDown ? 'thumb-down' : 'thumb-down-outline'}
+                  size={18}
+                  color={didDown ? '#E74C3C' : Colors.textSecondary}
+                />
+                <Text style={[styles.alertPopupVoteText, didDown && { color: '#E74C3C' }]}>
+                  {a.downvotes ?? 0}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        );
+      })()}
+
       {/* ── Report alert bottom sheet ─────────────────────────────────────── */}
       <NavReportSheet
         visible={showReportSheet}
         onClose={() => setShowReportSheet(false)}
         onSubmit={handleAlertSubmit}
-        userLocation={userLocation}
+        getUserLocation={() => userLocationRef.current}
       />
     </View>
   );
@@ -1343,6 +1459,69 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 3,
+  },
+
+  // ── Alert detail popup ────────────────────────────────────────────────────
+  alertPopup: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 190,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 10,
+    zIndex: 60,
+  },
+  alertPopupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginBottom: 4,
+  },
+  alertPopupIconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  alertPopupTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    textTransform: 'capitalize',
+  },
+  alertPopupDesc: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+    marginBottom: Spacing.xs,
+  },
+  alertPopupFooter: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  alertPopupVoteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 4,
+  },
+  alertPopupVoteText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textSecondary,
   },
 
   // ── User location arrow ───────────────────────────────────────────────────

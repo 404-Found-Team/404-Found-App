@@ -11,8 +11,8 @@ import {
     Alert,
     ScrollView,
     ActivityIndicator,
+    Image,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Colors, Spacing, BorderRadius } from '../constants/theme';
@@ -75,9 +75,11 @@ export default function SignUpScreen() {
                     showsVerticalScrollIndicator={false}
                 >
                     <View style={styles.logoContainer}>
-                        <View style={styles.logoBox}>
-                            <MaterialCommunityIcons name="map-marker" size={60} color={Colors.primaryDark} />
-                        </View>
+                        <Image
+                            source={require('../../assets/images1/colored-logo.png')}
+                            style={styles.logoImage}
+                            resizeMode="contain"
+                        />
                     </View>
 
                     <Text style={styles.title}>Create Account</Text>
@@ -199,11 +201,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: Spacing.lg,
     },
-    logoBox: {
-        width: 100,
-        height: 100,
-        backgroundColor: Colors.primaryLight,
-        borderRadius: BorderRadius.lg,
+    logoImage: {
+        width: 160,
+        height: 160,
         justifyContent: 'center',
         alignItems: 'center',
     },

@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -15,6 +16,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  Image,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -445,10 +447,24 @@ export default function AlertsScreen() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
 
-  // Track which alerts this session has already voted on so each user can
-  // only cast one upvote and one downvote per alert per session.
+  // Track which alerts this user has already voted on.
+  // Persisted in AsyncStorage so votes survive logout/login.
   const [upvotedIds, setUpvotedIds] = useState(new Set());
   const [downvotedIds, setDownvotedIds] = useState(new Set());
+
+  // Load persisted vote sets on mount.
+  useEffect(() => {
+    (async () => {
+      try {
+        const [upRaw, downRaw] = await Promise.all([
+          AsyncStorage.getItem('alert_upvoted_ids'),
+          AsyncStorage.getItem('alert_downvoted_ids'),
+        ]);
+        if (upRaw)   setUpvotedIds(new Set(JSON.parse(upRaw)));
+        if (downRaw) setDownvotedIds(new Set(JSON.parse(downRaw)));
+      } catch { /* silent — start with empty sets if storage fails */ }
+    })();
+  }, []);
 
   // ── Location ───────────────────────────────────────────────────────────────
   useFocusEffect(
@@ -491,20 +507,28 @@ export default function AlertsScreen() {
 
   // ── Voting ─────────────────────────────────────────────────────────────────
   async function handleUpvote(alertId) {
-    if (upvotedIds.has(alertId)) return; // already voted this session
+    if (upvotedIds.has(alertId)) return;
     try {
       const updated = await upvoteAlert(alertId);
       setAlerts(prev => prev.map(a => a.alert_id === alertId ? { ...a, upvotes: updated.upvotes } : a));
-      setUpvotedIds(prev => new Set([...prev, alertId]));
+      setUpvotedIds(prev => {
+        const next = new Set([...prev, alertId]);
+        AsyncStorage.setItem('alert_upvoted_ids', JSON.stringify([...next])).catch(() => {});
+        return next;
+      });
     } catch { /* silent */ }
   }
 
   async function handleDownvote(alertId) {
-    if (downvotedIds.has(alertId)) return; // already voted this session
+    if (downvotedIds.has(alertId)) return;
     try {
       const updated = await downvoteAlert(alertId);
       setAlerts(prev => prev.map(a => a.alert_id === alertId ? { ...a, downvotes: updated.downvotes } : a));
-      setDownvotedIds(prev => new Set([...prev, alertId]));
+      setDownvotedIds(prev => {
+        const next = new Set([...prev, alertId]);
+        AsyncStorage.setItem('alert_downvoted_ids', JSON.stringify([...next])).catch(() => {});
+        return next;
+      });
     } catch { /* silent */ }
   }
 
@@ -533,7 +557,11 @@ export default function AlertsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.logoButton}>
-          <MaterialCommunityIcons name="map-marker" size={28} color={Colors.primaryDark} />
+          <Image
+            source={require('../../../assets/images1/colored-logo.png')}
+            style={{ width: 40, height: 40 }}
+            resizeMode="contain"
+          />
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity style={styles.iconButton}>
@@ -805,8 +833,8 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   logoButton: {
-    width: 50, height: 50, backgroundColor: Colors.primaryLight,
-    borderRadius: BorderRadius.md, justifyContent: 'center', alignItems: 'center',
+    width: 50, height: 50,
+    justifyContent: 'center', alignItems: 'center',
   },
   headerIcons: { flexDirection: 'row', gap: Spacing.md },
   iconButton: { padding: Spacing.xs },
