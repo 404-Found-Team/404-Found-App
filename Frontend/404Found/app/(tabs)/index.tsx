@@ -86,12 +86,14 @@ export default function SignInScreen() {
             autoCapitalize="none"
           />
 
+          {/* Forgot password is temporarily disabled.
           <TouchableOpacity
             style={styles.forgotPassword}
             onPress={() => router.push('/forgot-password')}
           >
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
+          */}
 
           <TouchableOpacity
             style={styles.signInButton}
@@ -105,6 +107,7 @@ export default function SignInScreen() {
             )}
           </TouchableOpacity>
 
+          {/* OAuth sign-in is temporarily disabled.
           <View style={styles.dividerContainer}>
             <View style={styles.divider} />
             <Text style={styles.dividerText}>or continue with</Text>
@@ -133,6 +136,7 @@ export default function SignInScreen() {
               <MaterialCommunityIcons name="facebook" size={24} color="#1877F2" />
             </TouchableOpacity>
           </View>
+          */}
 
           <TouchableOpacity
             style={styles.signUpContainer}

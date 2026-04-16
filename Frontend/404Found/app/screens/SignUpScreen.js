@@ -61,20 +61,7 @@ export default function SignUpScreen() {
         }
     };
 
-    const handleGoogleSignUp = () => {
-        // TODO: Implement Google OAuth
-        Alert.alert('Google Sign Up', 'Google OAuth will be implemented here');
-      };
-    
-      const handleAppleSignUp = () => {
-        // TODO: Implement Apple OAuth
-        Alert.alert('Apple Sign Up', 'Apple OAuth will be implemented here');
-      };
-    
-      const handleFacebookSignUp = () => {
-        // TODO: Implement Facebook OAuth
-        Alert.alert('Facebook Sign Up', 'Facebook OAuth will be implemented here');
-      };    
+    // OAuth sign-up is temporarily disabled.
 
     return (
         <SafeAreaView style={styles.container}>
@@ -96,7 +83,7 @@ export default function SignUpScreen() {
                     <Text style={styles.title}>Create Account</Text>
                     <Text style={styles.subtitle}>Sign up to start navigating</Text>
 
-                    {/* OAuth Buttons */}
+                    {/* OAuth sign-up is temporarily disabled.
                     <View style={styles.oauthContainer}>
                         <TouchableOpacity 
                         style={styles.oauthButton}
@@ -120,12 +107,12 @@ export default function SignUpScreen() {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Divider */}
                     <View style={styles.dividerContainer}>
                         <View style={styles.divider} />
                         <Text style={styles.dividerText}>or sign up with email</Text>
                         <View style={styles.divider} />
                     </View>
+                    */}
 
                     <View style={styles.formContainer}>
                         <TextInput

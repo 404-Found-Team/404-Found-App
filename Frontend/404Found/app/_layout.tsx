@@ -16,7 +16,9 @@ export default function RootLayout() {
         {/* Auth screens - no tabs */}
         <Stack.Screen name="home" />
         <Stack.Screen name="sign-up" />
+        {/* Forgot password is temporarily disabled.
         <Stack.Screen name="forgot-password" />
+        */}
         {/* Main app with tabs */}
         <Stack.Screen name="(tabs)" />
         {/* Modal screens - accessible from tabs */}

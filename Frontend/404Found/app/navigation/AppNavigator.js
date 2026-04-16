@@ -5,7 +5,6 @@ import { AuthContext } from '../context/AuthContext';
 
 import SignInScreen from '../screens/SignInScreen';
 import SignUpScreen from '../screens/SignUpScreen';
-import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import MyAccountScreen from '../screens/MyAccountScreen';
 // import BottomTabNavigator from './Bottomtabnavigator';
@@ -33,7 +32,9 @@ const AppNavigator = () => {
           <> */}
             {/* <Stack.Screen name="SignIn" component={SignInScreen} /> */}
             <Stack.Screen name="SignUp" component={SignUpScreen} />
+            {/* Forgot password is temporarily disabled.
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            */}
           {/* </>
         ) : ( */}
         {/* Main app navigation is now handled by Expo Router's layout.tsx */}
