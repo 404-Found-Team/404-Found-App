@@ -57,7 +57,7 @@ export async function getRoutes(origin, destination, mode = 'car') {
 }
 
 /**
- * Fetch routes targeting a specific arrival time.
+ * Fetch routes targeting a specific arrival time (Arrive By).
  * @param {[number, number]} origin
  * @param {[number, number]} destination
  * @param {string}           arrivalTimeISO  ISO-8601 string e.g. "2026-04-12T09:00:00Z"
@@ -79,6 +79,24 @@ export async function planRoutes(origin, destination, arrivalTimeISO, mode = 'ca
     origin,
     destination,
     arrival_time: arrivalTimeISO,
+  });
+  return resp.data.routes || [];
+}
+
+/**
+ * Fetch routes starting at a specific departure time (Leave At).
+ * @param {[number, number]} origin
+ * @param {[number, number]} destination
+ * @param {string}           departureTimeISO  ISO-8601 string e.g. "2026-04-12T17:00:00Z"
+ * @param {'car'|'pedestrian'|'bicycle'|'transit'} mode
+ */
+export async function planDepartureRoutes(origin, destination, departureTimeISO, mode = 'car') {
+  const modeMap = { car: 'car', pedestrian: 'walk', bicycle: 'bike', transit: 'transit' };
+  const endpoint = modeMap[mode] || 'car';
+  const resp = await axios.post(`${API_BASE_URL}/routes/depart/${endpoint}`, {
+    origin,
+    destination,
+    departure_time: departureTimeISO,
   });
   return resp.data.routes || [];
 }

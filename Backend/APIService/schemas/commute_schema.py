@@ -15,6 +15,13 @@ class PlannedRouteRequest(BaseModel):
     arrival_time: str = Field(..., description="Target arrival time in ISO 8601 format, e.g. 2026-04-12T18:00:00Z")
 
 
+class DepartureRouteRequest(BaseModel):
+    """Request schema for leave-at route endpoints (with departure time)."""
+    origin: Tuple[float, float] = Field(..., description="Origin coordinates as (latitude, longitude)")
+    destination: Tuple[float, float] = Field(..., description="Destination coordinates as (latitude, longitude)")
+    departure_time: str = Field(..., description="Planned departure time in ISO 8601 format, e.g. 2026-04-12T17:00:00Z")
+
+
 class RouteData(BaseModel):
     """Schema for a single processed route record."""
     eta_minutes: int

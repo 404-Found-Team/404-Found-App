@@ -21,7 +21,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Location from 'expo-location';
 import axios from 'axios';
 import { Colors, Spacing, BorderRadius } from '../../constants/theme';
-import { getRoutes, planRoutes, geocodePlace, suggestPlaces, timeObjectToISO } from '../../services/routeService';
+import { planRoutes, planDepartureRoutes, geocodePlace, suggestPlaces, timeObjectToISO } from '../../services/routeService';
 import { API_BASE_URL } from '../../constants/api';
 import { setPendingRoute } from '../../services/routeStore';
 
@@ -506,7 +506,8 @@ export default function RoutesScreen() {
         const iso = timeObjectToISO(arriveBy);
         result = await planRoutes(originCoords, destCoords, iso, selectedMode);
       } else {
-        result = await getRoutes(originCoords, destCoords, selectedMode);
+        const iso = timeObjectToISO(leaveAt);
+        result = await planDepartureRoutes(originCoords, destCoords, iso, selectedMode);
       }
 
       // Filter out routes with obviously corrupt durations (HERE API transit bug)

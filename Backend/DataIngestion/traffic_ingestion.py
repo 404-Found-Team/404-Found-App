@@ -84,11 +84,37 @@ def plan_routes(origin: tuple, destination: tuple, arrival_time: str, mode: str 
         return {"routes": []}
 
 
+@cachetools.func.ttl_cache(maxsize=100, ttl=300)
+def plan_departure_routes(origin: tuple, destination: tuple, departure_time: str, mode: str = "any") -> dict:
+    """Fetch routes for a specific departure time. Cached 5 minutes."""
+    params = {
+        "origin": f"{origin[0]},{origin[1]}",
+        "destination": f"{destination[0]},{destination[1]}",
+        "transportMode": mode if mode != "any" else "car",
+        "routingMode": "fast",
+        "departureTime": departure_time,
+        "alternatives": 2,
+        "spans": "names",
+        "return": "polyline,summary,actions,instructions",
+    }
+    try:
+        resp = session.get(ROUTING_URL, params={**params, "apiKey": API_KEY}, timeout=8)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.exceptions.RequestException as e:
+        print(f"[traffic] Plan departure route error ({mode}): {e}")
+        return {"routes": []}
+
+
 @cachetools.func.ttl_cache(maxsize=50, ttl=300)
-def transit_routes(origin: tuple, destination: tuple, arrival_time: str | None = None) -> dict:
+def transit_routes(origin: tuple, destination: tuple, arrival_time: str | None = None, departure_time: str | None = None) -> dict:
     """Fetch transit routes. Cached 5 minutes."""
-    time_param = "arrivalTime" if arrival_time else "departureTime"
-    time_value = arrival_time if arrival_time else _now_iso()
+    if arrival_time:
+        time_param, time_value = "arrivalTime", arrival_time
+    elif departure_time:
+        time_param, time_value = "departureTime", departure_time
+    else:
+        time_param, time_value = "departureTime", _now_iso()
     params = {
         "origin": f"{origin[0]},{origin[1]}",
         "destination": f"{destination[0]},{destination[1]}",
@@ -335,8 +361,16 @@ def get_planned_routes(origin: tuple, destination: tuple, arrival_time: str, mod
     return format_data(plan_routes(origin, destination, arrival_time, mode))
 
 
+def get_planned_departure_routes(origin: tuple, destination: tuple, departure_time: str, mode: str = "any") -> list:
+    return format_data(plan_departure_routes(origin, destination, departure_time, mode))
+
+
 def get_transit_routes(origin: tuple, destination: tuple, arrival_time: str | None = None) -> list:
     return format_data(transit_routes(origin, destination, arrival_time))
+
+
+def get_transit_departure_routes(origin: tuple, destination: tuple, departure_time: str) -> list:
+    return format_data(transit_routes(origin, destination, departure_time=departure_time))
 
 
 if __name__ == "__main__":

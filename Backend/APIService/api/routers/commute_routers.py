@@ -4,8 +4,8 @@ import sys
 import os
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from DataIngestion.traffic_ingestion import get_formatted_routes, get_planned_routes, get_transit_routes
-from schemas.commute_schema import RouteRequest, PlannedRouteRequest, RouteResponse
+from DataIngestion.traffic_ingestion import get_formatted_routes, get_planned_routes, get_planned_departure_routes, get_transit_routes, get_transit_departure_routes
+from schemas.commute_schema import RouteRequest, PlannedRouteRequest, DepartureRouteRequest, RouteResponse
 
 router = APIRouter(prefix="/routes", tags=["routes"])
 
@@ -68,4 +68,24 @@ def plan_bike_route(request: PlannedRouteRequest):
 @router.post("/plan/transit", response_model=RouteResponse)
 def plan_transit_route(request: PlannedRouteRequest):
     records = get_transit_routes(request.origin, request.destination, request.arrival_time)
+    return RouteResponse.model_validate({"routes": records})
+
+@router.post("/depart/car", response_model=RouteResponse)
+def depart_car_route(request: DepartureRouteRequest):
+    records = get_planned_departure_routes(request.origin, request.destination, request.departure_time, "car")
+    return RouteResponse.model_validate({"routes": records})
+
+@router.post("/depart/walk", response_model=RouteResponse)
+def depart_pedestrian_route(request: DepartureRouteRequest):
+    records = get_planned_departure_routes(request.origin, request.destination, request.departure_time, "pedestrian")
+    return RouteResponse.model_validate({"routes": records})
+
+@router.post("/depart/bike", response_model=RouteResponse)
+def depart_bike_route(request: DepartureRouteRequest):
+    records = get_planned_departure_routes(request.origin, request.destination, request.departure_time, "bicycle")
+    return RouteResponse.model_validate({"routes": records})
+
+@router.post("/depart/transit", response_model=RouteResponse)
+def depart_transit_route(request: DepartureRouteRequest):
+    records = get_transit_departure_routes(request.origin, request.destination, request.departure_time)
     return RouteResponse.model_validate({"routes": records})
