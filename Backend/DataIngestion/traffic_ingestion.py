@@ -40,6 +40,17 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def _strip_ms(ts: str) -> str:
+    """Remove sub-second precision from an ISO-8601 string.
+
+    JavaScript's toISOString() produces '2026-04-17T07:00:00.000Z'.
+    The HERE Transit Router API rejects the '.000' fraction; the regular
+    routing API accepts it.  Strip it here so both APIs get a clean string.
+    """
+    import re
+    return re.sub(r'\.\d+Z$', 'Z', ts)
+
+
 @cachetools.func.ttl_cache(maxsize=100, ttl=300)
 def get_routes(origin: tuple, destination: tuple, mode: str) -> dict:
     """Fetch real-time driving/walking/cycling routes. Cached 5 minutes."""
@@ -110,24 +121,29 @@ def plan_departure_routes(origin: tuple, destination: tuple, departure_time: str
 def transit_routes(origin: tuple, destination: tuple, arrival_time: str | None = None, departure_time: str | None = None) -> dict:
     """Fetch transit routes. Cached 5 minutes."""
     if arrival_time:
-        time_param, time_value = "arrivalTime", arrival_time
+        time_param, time_value = "arrivalTime", _strip_ms(arrival_time)
     elif departure_time:
-        time_param, time_value = "departureTime", departure_time
+        time_param, time_value = "departureTime", _strip_ms(departure_time)
     else:
         time_param, time_value = "departureTime", _now_iso()
     params = {
         "origin": f"{origin[0]},{origin[1]}",
         "destination": f"{destination[0]},{destination[1]}",
         time_param: time_value,
-        "alternatives": 2,
-        "return": "polyline,summary,intermediateStops,travelSummary",
+        "return": "polyline,travelSummary,actions",
     }
     try:
         resp = session.get(TRANSIT_URL, params={**params, "apiKey": API_KEY}, timeout=8)
         resp.raise_for_status()
         return resp.json()
     except requests.exceptions.RequestException as e:
-        print(f"[traffic] Transit route error: {e}")
+        body = ""
+        if hasattr(e, "response") and e.response is not None:
+            try:
+                body = e.response.json()
+            except Exception:
+                body = e.response.text
+        print(f"[traffic] Transit route error: {e} | body: {body}")
         return {"routes": []}
 
 
