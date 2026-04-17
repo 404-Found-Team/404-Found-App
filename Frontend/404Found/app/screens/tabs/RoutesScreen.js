@@ -757,7 +757,7 @@ export default function RoutesScreen() {
           ) : null}
 
           {/* Route map preview for the selected route */}
-          {selectedRoute && <RouteMapPreview route={selectedRoute} />}
+          {selectedRoute && <RouteMapPreview key={routes.indexOf(selectedRoute)} route={selectedRoute} />}
 
           {/* Start Navigation button */}
           {selectedRoute && (
