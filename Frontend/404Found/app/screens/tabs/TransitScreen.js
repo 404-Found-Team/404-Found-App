@@ -10,6 +10,9 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
+  Modal,
+  Pressable,
+  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -18,7 +21,8 @@ import * as Location from 'expo-location';
 import axios from 'axios';
 import { Colors, Spacing, BorderRadius } from '../../constants/theme';
 import { API_BASE_URL } from '../../constants/api';
-import { findNearestStation } from '../../services/routeService';
+import { findNearestStation, getRoutes } from '../../services/routeService';
+import { setPendingRoute } from '../../services/routeStore';
 
 const LINE_COLORS = {
   RED: '#E53935',
@@ -62,6 +66,16 @@ function formatWait(seconds) {
   return `${Math.round(s / 60)} min`;
 }
 
+// Transport modes for the directions modal (Transit excluded — user is going
+// *to* the station, not using MARTA itself yet).
+const DIRECTIONS_MODES = [
+  { id: 'car',        label: 'Drive', icon: 'car' },
+  { id: 'pedestrian', label: 'Walk',  icon: 'walk' },
+  { id: 'bicycle',    label: 'Bike',  icon: 'bike' },
+];
+
+const GSU_REGION = { latitude: 33.7534, longitude: -84.3863 };
+
 function ArrivalBadge({ seconds, nextArrival, lineColor }) {
   const s = parseInt(seconds, 10);
   const mins = isNaN(s) ? null : Math.round(s / 60);
@@ -94,6 +108,9 @@ export default function TransitScreen() {
   const [expandedLines, setExpandedLines] = useState(null);
   const [lineFilter, setLineFilter] = useState('ALL');
 
+  // ── User location (shared for nearest-station lookup + directions modal) ────
+  const [userLocation, setUserLocation] = useState(null);
+
   // ── Nearest station ─────────────────────────────────────────────────────────
   const [nearestStation, setNearestStation] = useState(null);
 
@@ -105,11 +122,54 @@ export default function TransitScreen() {
         const loc = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
+        setUserLocation(loc.coords);
         const station = findNearestStation(loc.coords.latitude, loc.coords.longitude);
         setNearestStation(station);
       } catch { /* silent */ }
     })();
   }, []);
+
+  // ── Directions modal state ────────────────────────────────────────────────────
+  const [showDirectionsModal, setShowDirectionsModal] = useState(false);
+  const [directionsMode, setDirectionsMode] = useState('car');
+  const [directionsRoutes, setDirectionsRoutes] = useState([]);
+  const [directionsLoading, setDirectionsLoading] = useState(false);
+  const [directionsSelected, setDirectionsSelected] = useState(null);
+
+  const fetchDirectionsRoutes = useCallback(async () => {
+    if (!nearestStation) return;
+    setDirectionsLoading(true);
+    setDirectionsRoutes([]);
+    setDirectionsSelected(null);
+    try {
+      const origin = userLocation
+        ? [userLocation.latitude, userLocation.longitude]
+        : [GSU_REGION.latitude, GSU_REGION.longitude];
+      const dest = [nearestStation.lat, nearestStation.lng];
+      const routes = await getRoutes(origin, dest, directionsMode);
+      setDirectionsRoutes(routes);
+      if (routes.length > 0) setDirectionsSelected(routes[0]);
+    } catch { /* silent – empty state shown */ }
+    finally { setDirectionsLoading(false); }
+  }, [nearestStation, directionsMode, userLocation]);
+
+  useEffect(() => {
+    if (showDirectionsModal && nearestStation) fetchDirectionsRoutes();
+  }, [showDirectionsModal, directionsMode, nearestStation]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function openDirectionsModal() {
+    setDirectionsMode('car');
+    setDirectionsRoutes([]);
+    setDirectionsSelected(null);
+    setShowDirectionsModal(true);
+  }
+
+  // ── ETA formatter ─────────────────────────────────────────────────────────────
+  function fmtEta(min) {
+    if (!min && min !== 0) return '--';
+    if (min >= 60) return `${Math.floor(min / 60)}h ${min % 60}m`;
+    return `${min} min`;
+  }
 
   const fetchTrainData = useCallback(async (isRefresh = false) => {
     if (!isRefresh) setLoading(true);
@@ -136,15 +196,15 @@ export default function TransitScreen() {
 
   const lineOrder = ['RED', 'BLUE', 'GOLD', 'GREEN'];
 
-  // Trains arriving in under 5 minutes across all lines (unaffected by line filter)
-  const arrivingSoon = trainData
-    .filter(t => { const s = parseInt(t.waiting_seconds, 10); return !isNaN(s) && s >= 0 && s < 300; })
-    .slice(0, 6);
-
   // Filter by selected line, then group: line → station → trains
   const filteredTrains = lineFilter === 'ALL'
     ? trainData
     : trainData.filter(t => (t.line || '').toUpperCase().includes(lineFilter));
+
+  // Trains arriving in under 5 minutes — respects the active line filter
+  const arrivingSoon = filteredTrains
+    .filter(t => { const s = parseInt(t.waiting_seconds, 10); return !isNaN(s) && s >= 0 && s < 300; })
+    .slice(0, 6);
 
   const groupedByLine = filteredTrains.reduce((acc, train) => {
     const lineKey = train.line || 'Unknown';
@@ -179,6 +239,11 @@ export default function TransitScreen() {
 
   const isExpanded = line => expandedLines === null || expandedLines.has(line);
 
+  // Only show filter tabs for lines that have actual data
+  const availableLineKeys = lineOrder.filter(key =>
+    trainData.some(t => (t.line || '').toUpperCase().includes(key))
+  );
+
   const updatedStr = lastUpdated
     ? lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : null;
@@ -186,6 +251,135 @@ export default function TransitScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
+
+      {/* ── Directions modal ───────────────────────────────────────────────── */}
+      <Modal
+        visible={showDirectionsModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowDirectionsModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowDirectionsModal(false)}>
+          <Pressable style={styles.modalSheet} onPress={e => e.stopPropagation()}>
+            <View style={styles.modalHandle} />
+
+            <View style={styles.modalHeader}>
+              <MaterialCommunityIcons name="map-marker" size={20} color="#E53935" />
+              <Text style={styles.modalTitle} numberOfLines={1}>
+                {nearestStation ? `${nearestStation.name} MARTA Station` : 'Nearest Station'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowDirectionsModal(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <MaterialCommunityIcons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Transport mode tabs */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.modalModeScroll}
+              contentContainerStyle={{ paddingHorizontal: Spacing.md, gap: Spacing.sm }}
+            >
+              {DIRECTIONS_MODES.map(m => (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[styles.modalModeChip, directionsMode === m.id && styles.modalModeChipActive]}
+                  onPress={() => setDirectionsMode(m.id)}
+                >
+                  <MaterialCommunityIcons
+                    name={m.icon}
+                    size={16}
+                    color={directionsMode === m.id ? Colors.primaryDark : Colors.textSecondary}
+                  />
+                  <Text style={[styles.modalModeLabel, directionsMode === m.id && styles.modalModeLabelActive]}>
+                    {m.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Route results */}
+            <ScrollView style={styles.modalRouteScroll} nestedScrollEnabled>
+              {directionsLoading ? (
+                <View style={styles.modalCentered}>
+                  <ActivityIndicator size="large" color={Colors.primary} />
+                  <Text style={styles.modalStatusText}>Finding routes…</Text>
+                </View>
+              ) : directionsRoutes.length === 0 ? (
+                <View style={styles.modalCentered}>
+                  <MaterialCommunityIcons name="routes" size={40} color={Colors.textLight} />
+                  <Text style={styles.modalStatusText}>No routes found</Text>
+                </View>
+              ) : (
+                directionsRoutes.map((route, i) => {
+                  const sel = directionsSelected === route;
+                  const tl = route.traffic_level;
+                  const tlColor = tl === 'high' ? '#E53935' : tl === 'medium' ? '#FFC107' : '#43A047';
+                  return (
+                    <TouchableOpacity
+                      key={i}
+                      style={[styles.goNowCard, sel && styles.goNowCardSelected]}
+                      onPress={() => setDirectionsSelected(route)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.goNowCardRow}>
+                        <View style={[styles.goNowModeIcon, sel && { backgroundColor: Colors.primary }]}>
+                          <MaterialCommunityIcons
+                            name={DIRECTIONS_MODES.find(m => m.id === route.commute_type)?.icon ?? 'car'}
+                            size={20}
+                            color={sel ? Colors.white : Colors.primary}
+                          />
+                        </View>
+                        <View style={styles.goNowCardInfo}>
+                          <Text style={styles.goNowEta}>{fmtEta(route.eta_minutes)}</Text>
+                          <Text style={styles.goNowDist}>{route.distance} mi · {route.label}</Text>
+                        </View>
+                        <View style={[styles.goNowTrafficPill, { backgroundColor: tlColor + '22' }]}>
+                          <View style={[styles.goNowTrafficDot, { backgroundColor: tlColor }]} />
+                          <Text style={[styles.goNowTrafficLabel, { color: tlColor }]}>
+                            {tl === 'high' ? 'Heavy' : tl === 'medium' ? 'Moderate' : 'Light'}
+                          </Text>
+                        </View>
+                        {sel && <MaterialCommunityIcons name="check-circle" size={20} color={Colors.primary} />}
+                      </View>
+                      {route.delay_minutes > 0 && (
+                        <Text style={styles.goNowDelay}>+{route.delay_minutes} min delay</Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+
+            {/* Start Navigation button */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.startNavBtn, !directionsSelected && styles.startNavBtnDisabled]}
+                disabled={!directionsSelected}
+                onPress={() => {
+                  if (!directionsSelected || !nearestStation) return;
+                  setShowDirectionsModal(false);
+                  setPendingRoute(directionsSelected);
+                  router.push({
+                    pathname: '/navigation',
+                    params: {
+                      destLat: String(nearestStation.lat),
+                      destLng: String(nearestStation.lng),
+                      destName: `${nearestStation.name} MARTA Station`,
+                    },
+                  });
+                }}
+              >
+                <MaterialCommunityIcons name="navigation" size={18} color={Colors.white} />
+                <Text style={styles.startNavText}>Start Navigation</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <View style={styles.header}>
         <View style={styles.logoButton}>
@@ -196,9 +390,6 @@ export default function TransitScreen() {
           />
         </View>
         <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton}>
-            <MaterialCommunityIcons name="menu" size={28} color={Colors.textPrimary} />
-          </TouchableOpacity>
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => router.push('../screens/SettingsScreen')}
@@ -253,19 +444,10 @@ export default function TransitScreen() {
             <Text style={styles.nearestLine}>{nearestStation.line} Line</Text>
             <TouchableOpacity
               style={styles.nearestDirectionsBtn}
-              onPress={() =>
-                router.push({
-                  pathname: '/navigation',
-                  params: {
-                    destLat: String(nearestStation.lat),
-                    destLng: String(nearestStation.lng),
-                    destName: `${nearestStation.name} MARTA Station`,
-                  },
-                })
-              }
+              onPress={openDirectionsModal}
             >
-              <MaterialCommunityIcons name="walk" size={16} color={Colors.white} />
-              <Text style={styles.nearestDirectionsTxt}>Walk Directions</Text>
+              <MaterialCommunityIcons name="navigation" size={16} color={Colors.white} />
+              <Text style={styles.nearestDirectionsTxt}>Directions</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -290,29 +472,31 @@ export default function TransitScreen() {
           </View>
         ) : (
           <>
-            {/* ── Line filter tabs ──────────────────────────────────────────────────────────────── */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.filterBar}
-              contentContainerStyle={styles.filterBarContent}
-            >
-              {['ALL', ...lineOrder].map(key => {
-                const isActive = lineFilter === key;
-                const tabColor = key === 'ALL' ? Colors.primary : LINE_COLORS[key];
-                return (
-                  <TouchableOpacity
-                    key={key}
-                    style={[styles.filterTab, isActive && { backgroundColor: tabColor, borderColor: tabColor }]}
-                    onPress={() => setLineFilter(key)}
-                  >
-                    <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
-                      {key === 'ALL' ? 'All Lines' : key.charAt(0) + key.slice(1).toLowerCase()}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+            {/* ── Line filter tabs — only shown when multiple lines have data ── */}
+            {availableLineKeys.length > 1 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.filterBar}
+                contentContainerStyle={styles.filterBarContent}
+              >
+                {['ALL', ...availableLineKeys].map(key => {
+                  const isActive = lineFilter === key;
+                  const tabColor = key === 'ALL' ? Colors.primary : LINE_COLORS[key];
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      style={[styles.filterTab, isActive && { backgroundColor: tabColor, borderColor: tabColor }]}
+                      onPress={() => setLineFilter(key)}
+                    >
+                      <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
+                        {key === 'ALL' ? 'All Lines' : key.charAt(0) + key.slice(1).toLowerCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
 
             {/* ── Arriving Soon ─────────────────────────────────────────────────────────────── */}
             {arrivingSoon.length > 0 && (
@@ -753,6 +937,166 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 11,
     fontWeight: '700',
+  },
+  // ── Directions modal ──────────────────────────────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: BorderRadius.xl,
+    borderTopRightRadius: BorderRadius.xl,
+    paddingTop: Spacing.sm,
+    paddingBottom: Platform.OS === 'ios' ? 34 : Spacing.lg,
+    maxHeight: '85%',
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.border,
+    alignSelf: 'center',
+    marginBottom: Spacing.md,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    gap: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  modalTitle: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  modalModeScroll: {
+    marginVertical: Spacing.md,
+  },
+  modalModeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.round,
+    backgroundColor: Colors.backgroundGray,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 6,
+  },
+  modalModeChipActive: {
+    backgroundColor: Colors.primaryLight,
+    borderColor: Colors.primary,
+  },
+  modalModeLabel: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  modalModeLabelActive: {
+    color: Colors.primaryDark,
+    fontWeight: '700',
+  },
+  modalRouteScroll: {
+    maxHeight: 240,
+    paddingHorizontal: Spacing.md,
+  },
+  modalCentered: {
+    alignItems: 'center',
+    paddingVertical: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  modalStatusText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  goNowCard: {
+    backgroundColor: Colors.backgroundGray,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  goNowCardSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryLight,
+  },
+  goNowCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  goNowModeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  goNowCardInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  goNowEta: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  goNowDist: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  goNowTrafficPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.round,
+    gap: 4,
+  },
+  goNowTrafficDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  goNowTrafficLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  goNowDelay: {
+    fontSize: 11,
+    color: '#E53935',
+    marginTop: 4,
+    marginLeft: 48,
+  },
+  modalActions: {
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  startNavBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  startNavBtnDisabled: {
+    opacity: 0.5,
+  },
+  startNavText: {
+    color: Colors.white,
+    fontWeight: '700',
+    fontSize: 16,
   },
   // Station sub-header within a line section
   stationGroupHeader: {

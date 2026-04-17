@@ -347,13 +347,16 @@ export default function HomeScreen() {
   }, [userLocation]);
 
   // ── Fetch alerts & incidents whenever screen is focused ────────────────────
-  // Accepts optional lat/lng so the focus handler can pass a freshly-fetched
-  // position without waiting for the setUserLocation state update to propagate.
+  // Reads from userLocationRef (always current) rather than the userLocation
+  // state variable so this callback has stable [] deps and never triggers a
+  // useFocusEffect re-run loop when userLocation updates inside it.
+  // Accepts optional lat/lng override so the focus handler can pass a freshly-
+  // fetched position before the state update has propagated.
   const loadMapData = useCallback(async (overrideLat, overrideLng) => {
     setDataLoading(true);
     try {
-      const lat = overrideLat ?? userLocation?.latitude ?? GSU_REGION.latitude;
-      const lng = overrideLng ?? userLocation?.longitude ?? GSU_REGION.longitude;
+      const lat = overrideLat ?? userLocationRef.current?.latitude ?? GSU_REGION.latitude;
+      const lng = overrideLng ?? userLocationRef.current?.longitude ?? GSU_REGION.longitude;
       const [alertData, incidentData] = await Promise.all([
         fetchAlerts(lat, lng),
         fetchTrafficIncidents(lat, lng, 8000),
@@ -365,7 +368,7 @@ export default function HomeScreen() {
     } finally {
       setDataLoading(false);
     }
-  }, [userLocation]);
+  }, []); // stable — reads coords from ref at call time
 
   // Re-fetch the user's GPS position every time the screen comes back into
   // focus (e.g. returning from NavigationScreen) so alerts and the recenter
