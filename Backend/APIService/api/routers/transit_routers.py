@@ -11,4 +11,5 @@ router = APIRouter(prefix="/transit", tags=["transit"])
 @router.get("/")
 def get_transit():
     data = call_marta()
+    data.sort(key=lambda t: int(t.get('waiting_seconds') or 9999))
     return {'trains': data}

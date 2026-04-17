@@ -60,18 +60,27 @@ def _marta_request() -> list:
         return []
 
 
+def _normalize_name(name: str) -> str:
+    """Title-case a MARTA station/destination name and strip the ' STATION' suffix."""
+    if not name:
+        return name
+    return name.replace(' STATION', '').strip().title()
+
+
 def _parse_trains(data: list) -> list:
     """Convert raw MARTA JSON list into normalised dicts."""
     records = []
     for item in data:
         try:
+            waiting_s = int(item.get('WAITING_SECONDS') or 0)
             records.append({
                 'line': item['LINE'],
                 'direction': item['DIRECTION'],
-                'station': item['STATION'],
-                'destination': item['DESTINATION'],
+                'station': _normalize_name(item['STATION']),
+                'destination': _normalize_name(item['DESTINATION']),
                 'next_arrival': item['NEXT_ARR'],
                 'waiting_seconds': item['WAITING_SECONDS'],
+                'waiting_minutes': max(0, round(waiting_s / 60)),
                 'timestamp': item['EVENT_TIME'],
             })
         except KeyError as e:

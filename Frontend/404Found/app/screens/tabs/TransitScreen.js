@@ -92,6 +92,7 @@ export default function TransitScreen() {
   const [lastUpdated, setLastUpdated] = useState(null);
   // null means all lines expanded (default); switches to a Set once user collapses one
   const [expandedLines, setExpandedLines] = useState(null);
+  const [lineFilter, setLineFilter] = useState('ALL');
 
   // ── Nearest station ─────────────────────────────────────────────────────────
   const [nearestStation, setNearestStation] = useState(null);
@@ -133,15 +134,27 @@ export default function TransitScreen() {
     }, [fetchTrainData])
   );
 
-  const groupedByLine = trainData.reduce((acc, train) => {
-    const key = train.line || 'Unknown';
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(train);
+  const lineOrder = ['RED', 'BLUE', 'GOLD', 'GREEN'];
+
+  // Trains arriving in under 5 minutes across all lines (unaffected by line filter)
+  const arrivingSoon = trainData
+    .filter(t => { const s = parseInt(t.waiting_seconds, 10); return !isNaN(s) && s >= 0 && s < 300; })
+    .slice(0, 6);
+
+  // Filter by selected line, then group: line → station → trains
+  const filteredTrains = lineFilter === 'ALL'
+    ? trainData
+    : trainData.filter(t => (t.line || '').toUpperCase().includes(lineFilter));
+
+  const groupedByLine = filteredTrains.reduce((acc, train) => {
+    const lineKey = train.line || 'Unknown';
+    const stationKey = train.station || 'Unknown';
+    if (!acc[lineKey]) acc[lineKey] = {};
+    if (!acc[lineKey][stationKey]) acc[lineKey][stationKey] = [];
+    acc[lineKey][stationKey].push(train);
     return acc;
   }, {});
 
-  // Sort lines in a consistent order: RED, BLUE, GOLD, GREEN, then others
-  const lineOrder = ['RED', 'BLUE', 'GOLD', 'GREEN'];
   const sortedLines = Object.keys(groupedByLine).sort((a, b) => {
     const ai = lineOrder.findIndex(k => a.toUpperCase().includes(k));
     const bi = lineOrder.findIndex(k => b.toUpperCase().includes(k));
@@ -276,56 +289,131 @@ export default function TransitScreen() {
             <Text style={styles.statusText}>No train arrivals available right now</Text>
           </View>
         ) : (
-          sortedLines.map(line => {
-            const color = getLineColor(line);
-            const trains = groupedByLine[line];
-            return (
-              <View key={line} style={styles.lineSection}>
-                <TouchableOpacity
-                  style={[styles.lineBanner, { backgroundColor: color }]}
-                  onPress={() => toggleLine(line)}
-                  activeOpacity={0.85}
-                >
-                  <MaterialCommunityIcons name="train-variant" size={18} color="#fff" />
-                  <Text style={styles.lineBannerText}>{getLineLabel(line)}</Text>
-                  <Text style={styles.lineBannerCount}>{trains.length} trains</Text>
-                  <MaterialCommunityIcons
-                    name={isExpanded(line) ? 'chevron-up' : 'chevron-down'}
-                    size={18}
-                    color="rgba(255,255,255,0.8)"
-                  />
-                </TouchableOpacity>
-
-                {isExpanded(line) && trains.map((train, idx) => (
-                  <View
-                    key={idx}
-                    style={[
-                      styles.trainRow,
-                      idx === trains.length - 1 && styles.trainRowLast,
-                    ]}
+          <>
+            {/* ── Line filter tabs ──────────────────────────────────────────────────────────────── */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterBar}
+              contentContainerStyle={styles.filterBarContent}
+            >
+              {['ALL', ...lineOrder].map(key => {
+                const isActive = lineFilter === key;
+                const tabColor = key === 'ALL' ? Colors.primary : LINE_COLORS[key];
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={[styles.filterTab, isActive && { backgroundColor: tabColor, borderColor: tabColor }]}
+                    onPress={() => setLineFilter(key)}
                   >
-                    <View style={[styles.lineAccent, { backgroundColor: color }]} />
-                    <View style={styles.trainInfo}>
-                      <Text style={styles.stationName} numberOfLines={1}>
-                        {train.station}
-                      </Text>
-                      <View style={styles.destinationRow}>
-                        <MaterialCommunityIcons name="arrow-right-circle-outline" size={13} color={color} />
-                        <Text style={styles.destinationText} numberOfLines={1}>
-                          {expandDirection(train.direction)} · To {train.destination}
-                        </Text>
+                    <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
+                      {key === 'ALL' ? 'All Lines' : key.charAt(0) + key.slice(1).toLowerCase()}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* ── Arriving Soon ─────────────────────────────────────────────────────────────── */}
+            {arrivingSoon.length > 0 && (
+              <View style={styles.arrivingSoonSection}>
+                <View style={styles.arrivingSoonHeader}>
+                  <MaterialCommunityIcons name="lightning-bolt" size={16} color="#F57F17" />
+                  <Text style={styles.arrivingSoonTitle}>Arriving Soon</Text>
+                </View>
+                {arrivingSoon.map((train, idx) => {
+                  const tColor = getLineColor(train.line);
+                  const lineKey = (train.line || '').toUpperCase();
+                  const chipLabel = lineKey.includes('RED') ? 'R'
+                    : lineKey.includes('BLUE') ? 'B'
+                    : lineKey.includes('GOLD') ? 'G'
+                    : lineKey.includes('GREEN') ? 'Gr' : '?';
+                  return (
+                    <View
+                      key={idx}
+                      style={[styles.arrivingSoonRow, idx > 0 && styles.arrivingSoonRowBorder]}
+                    >
+                      <View style={[styles.lineChip, { backgroundColor: tColor }]}>
+                        <Text style={styles.lineChipText}>{chipLabel}</Text>
                       </View>
+                      <View style={styles.trainInfo}>
+                        <Text style={styles.stationName} numberOfLines={1}>{train.station}</Text>
+                        <View style={styles.destinationRow}>
+                          <MaterialCommunityIcons name="arrow-right-circle-outline" size={13} color={tColor} />
+                          <Text style={styles.destinationText} numberOfLines={1}>
+                            {expandDirection(train.direction)} · To {train.destination}
+                          </Text>
+                        </View>
+                      </View>
+                      <ArrivalBadge
+                        seconds={train.waiting_seconds}
+                        nextArrival={train.next_arrival}
+                        lineColor={tColor}
+                      />
                     </View>
-                    <ArrivalBadge
-                      seconds={train.waiting_seconds}
-                      nextArrival={train.next_arrival}
-                      lineColor={color}
-                    />
-                  </View>
-                ))}
+                  );
+                })}
               </View>
-            );
-          })
+            )}
+
+            {/* ── Trains by line → station ─────────────────────────────────────────────────────── */}
+            {sortedLines.map(line => {
+              const color = getLineColor(line);
+              const stationGroups = groupedByLine[line];
+              const totalTrains = Object.values(stationGroups).flat().length;
+              return (
+                <View key={line} style={styles.lineSection}>
+                  <TouchableOpacity
+                    style={[styles.lineBanner, { backgroundColor: color }]}
+                    onPress={() => toggleLine(line)}
+                    activeOpacity={0.85}
+                  >
+                    <MaterialCommunityIcons name="train-variant" size={18} color="#fff" />
+                    <Text style={styles.lineBannerText}>{getLineLabel(line)}</Text>
+                    <Text style={styles.lineBannerCount}>{totalTrains} trains</Text>
+                    <MaterialCommunityIcons
+                      name={isExpanded(line) ? 'chevron-up' : 'chevron-down'}
+                      size={18}
+                      color="rgba(255,255,255,0.8)"
+                    />
+                  </TouchableOpacity>
+
+                  {isExpanded(line) && Object.entries(stationGroups).map(([station, stTrains]) => (
+                    <View key={station}>
+                      <View style={styles.stationGroupHeader}>
+                        <MaterialCommunityIcons name="map-marker" size={13} color={color} />
+                        <Text style={[styles.stationGroupName, { color }]}>{station}</Text>
+                      </View>
+                      {stTrains.map((train, idx) => (
+                        <View
+                          key={idx}
+                          style={[
+                            styles.trainRow,
+                            idx === stTrains.length - 1 && styles.trainRowLast,
+                          ]}
+                        >
+                          <View style={[styles.lineAccent, { backgroundColor: color }]} />
+                          <View style={styles.trainInfo}>
+                            <View style={styles.destinationRow}>
+                              <MaterialCommunityIcons name="arrow-right-circle-outline" size={13} color={color} />
+                              <Text style={styles.destinationText} numberOfLines={1}>
+                                {expandDirection(train.direction)} · To {train.destination}
+                              </Text>
+                            </View>
+                          </View>
+                          <ArrivalBadge
+                            seconds={train.waiting_seconds}
+                            nextArrival={train.next_arrival}
+                            lineColor={color}
+                          />
+                        </View>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              );
+            })}
+          </>
         )}
 
         <View style={styles.bottomPad} />
@@ -589,5 +677,98 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontWeight: '600',
     fontSize: 14,
+  },
+  // Line filter tabs
+  filterBar: {
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  filterBarContent: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  filterTab: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.round,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.white,
+  },
+  filterTabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+  },
+  filterTabTextActive: {
+    color: Colors.white,
+  },
+  // Arriving Soon section
+  arrivingSoonSection: {
+    margin: Spacing.md,
+    marginBottom: 0,
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  arrivingSoonHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: '#FFFDE7',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  arrivingSoonTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#F57F17',
+  },
+  arrivingSoonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.sm,
+  },
+  arrivingSoonRowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  lineChip: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lineChipText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  // Station sub-header within a line section
+  stationGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    backgroundColor: Colors.backgroundGray,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    gap: 6,
+  },
+  stationGroupName: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
 });
